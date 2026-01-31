@@ -1,0 +1,11 @@
+Logistic Regression Model Results
+========================================
+
+Accuracy:  0.9500
+Precision: 0.9542
+Recall:    0.9500
+F1 Score:  0.9496
+
+Confusion Matrix:
+[[11  0]
+ [ 1  8]]
