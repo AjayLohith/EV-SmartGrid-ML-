@@ -71,6 +71,249 @@ REAL INCIDENT EXAMPLE:
 - This project aims to PREVENT such attacks on EV charging infrastructure
 
 ================================================================================
+2.1 HOW CAN ELECTRICAL GRIDS BE CYBER-ATTACKED? (Simple Explanation)
+================================================================================
+
+"But wait - a power grid is just wires, transformers, and generators. 
+ How can hackers attack something that's purely electrical?"
+
+GREAT QUESTION! Here's the simple answer:
+
+THE OLD GRID (Before 2000):
+---------------------------
+    ┌─────────────┐         ┌─────────────┐         ┌─────────────┐
+    │  Power      │ ──────► │ Transformer │ ──────► │   Your      │
+    │  Plant      │  wires  │  Station    │  wires  │   Home      │
+    └─────────────┘         └─────────────┘         └─────────────┘
+    
+    - Pure electrical system
+    - Manual control by human operators
+    - No internet connection
+    - CANNOT be hacked remotely (you'd need physical access)
+
+
+THE MODERN "SMART" GRID (Today):
+--------------------------------
+    ┌─────────────┐         ┌─────────────┐         ┌─────────────┐
+    │  Power      │ ──────► │ Transformer │ ──────► │   Your      │
+    │  Plant      │         │  Station    │         │   Home      │
+    └──────┬──────┘         └──────┬──────┘         └──────┬──────┘
+           │                       │                       │
+           │    ┌──────────────────┴───────────────────┐  │
+           │    │         COMMUNICATION NETWORK         │  │
+           │    │  (Internet, Cellular, Radio, Fiber)  │  │
+           │    └──────────────────┬───────────────────┘  │
+           │                       │                       │
+           ▼                       ▼                       ▼
+    ┌─────────────┐         ┌─────────────┐         ┌─────────────┐
+    │   SCADA     │         │   Smart     │         │   Smart     │
+    │   System    │◄───────►│   Meter     │◄───────►│   EV        │
+    │  (Control)  │         │             │         │   Charger   │
+    └─────────────┘         └─────────────┘         └─────────────┘
+           │
+           ▼
+    ┌─────────────────────────────────────────────────────────────┐
+    │                    CONTROL CENTER                            │
+    │   Operators monitor and control the entire grid remotely    │
+    └─────────────────────────────────────────────────────────────┘
+
+    - Electrical components + SOFTWARE + INTERNET
+    - Remote monitoring and control
+    - Automated decisions by computers
+    - CAN BE HACKED through network connections
+
+
+WHY DID GRIDS BECOME "SMART"?
+-----------------------------
+Benefits of Smart Grid:
+✓ Remote monitoring - No need to send technicians everywhere
+✓ Automatic fault detection - Fix problems faster
+✓ Demand management - Balance load automatically
+✓ Integration with renewables - Solar, wind, EVs
+✓ Cost savings - Efficient operation
+
+The Trade-off:
+✗ Every internet connection is a potential entry point for hackers
+✗ Software has bugs that can be exploited
+✗ More automation = More things that can go wrong
+
+
+WHERE ARE THE SOFTWARE COMPONENTS?
+----------------------------------
+Even though you see wires and transformers, there's hidden software:
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│                     SMART GRID SOFTWARE LAYERS                            │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  LAYER 1: SENSORS & METERS                                               │
+│  ├── Smart meters in homes (measure usage, send data via internet)       │
+│  ├── Voltage sensors (digital readings sent to control center)           │
+│  ├── Current sensors (digital readings sent to control center)           │
+│  └── Temperature monitors (prevent overheating)                          │
+│                                                                           │
+│  LAYER 2: COMMUNICATION                                                   │
+│  ├── Cellular networks (4G/5G)                                           │
+│  ├── WiFi connections                                                    │
+│  ├── Fiber optic cables                                                  │
+│  └── Radio communication                                                 │
+│                                                                           │
+│  LAYER 3: CONTROL SYSTEMS                                                │
+│  ├── SCADA (Supervisory Control and Data Acquisition)                    │
+│  │   └── Software that monitors and controls entire grid                 │
+│  ├── PLCs (Programmable Logic Controllers)                               │
+│  │   └── Small computers controlling switches and breakers               │
+│  └── RTUs (Remote Terminal Units)                                        │
+│      └── Devices that collect data and send commands                     │
+│                                                                           │
+│  LAYER 4: EV CHARGING INFRASTRUCTURE                                     │
+│  ├── Charging station software (accepts payment, starts charging)        │
+│  ├── Mobile apps (schedule charging, check status)                       │
+│  ├── Backend servers (manage thousands of chargers)                      │
+│  └── Payment systems (credit cards, billing)                             │
+│                                                                           │
+└──────────────────────────────────────────────────────────────────────────┘
+
+ALL of these have software. ALL can potentially be hacked.
+
+
+HOW HACKERS ATTACK - SIMPLE EXAMPLES:
+-------------------------------------
+
+EXAMPLE 1: FAKE SENSOR DATA (False Data Injection)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Normal Operation:
+    Sensor says: "Voltage = 1.0 (normal)"
+    Control Center: "Everything OK, do nothing"
+
+Attack:
+    Hacker intercepts sensor data
+    Hacker changes it to: "Voltage = 0.5 (EMERGENCY!)"
+    Control Center: "DANGER! Increase power immediately!"
+    Result: Too much power sent → Equipment damaged → Blackout
+
+
+EXAMPLE 2: FAKE CHARGING REQUEST
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Normal Operation:
+    EV App: "Please charge my car at 7 kW"
+    Charger: "OK, starting 7 kW charging"
+
+Attack:
+    Hacker sends: "Please charge at 500 kW" (impossible amount)
+    If system doesn't check: Tries to draw 500 kW
+    Result: Circuit breaker trips → Station goes offline
+    
+    Or worse: Hacker sends 10,000 fake requests
+    Result: System overwhelmed → Denial of Service
+
+
+EXAMPLE 3: TAKING CONTROL OF CHARGERS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Hacker gains access to charging station network
+    Hacker commands ALL chargers: "Start charging at maximum power NOW"
+    1000 chargers × 50 kW = 50,000 kW sudden demand
+    Grid cannot handle sudden spike
+    Result: Frequency drops → Automatic shutdown → BLACKOUT
+
+
+EXAMPLE 4: RANSOMWARE
+~~~~~~~~~~~~~~~~~~~~~
+    Hacker installs ransomware on control center computers
+    All screens show: "Pay $10 million or grid stays offline"
+    Operators cannot control anything
+    Result: Manual operation only (slow, dangerous)
+
+
+REAL-WORLD ATTACKS THAT ALREADY HAPPENED:
+-----------------------------------------
+
+┌─────────────┬─────────────────────────────────────────────────────────────┐
+│ Year        │ Incident                                                     │
+├─────────────┼─────────────────────────────────────────────────────────────┤
+│ 2015        │ Ukraine: Hackers turned off power for 230,000 customers     │
+│             │ Method: Malware + Remote access to control systems          │
+├─────────────┼─────────────────────────────────────────────────────────────┤
+│ 2016        │ Ukraine again: Hackers caused 1-hour blackout in Kiev       │
+│             │ Method: Malware that automatically opened circuit breakers  │
+├─────────────┼─────────────────────────────────────────────────────────────┤
+│ 2021        │ Florida Water Plant: Hacker tried to poison water supply    │
+│             │ Method: Remote access to chemical control system            │
+├─────────────┼─────────────────────────────────────────────────────────────┤
+│ 2021        │ Colonial Pipeline: Ransomware shut down fuel supply         │
+│             │ Method: Compromised password → Ransomware deployed          │
+├─────────────┼─────────────────────────────────────────────────────────────┤
+│ 2022        │ EV Chargers in Russia: Hacked to display political messages │
+│             │ Method: Insecure network configuration                      │
+└─────────────┴─────────────────────────────────────────────────────────────┘
+
+
+WHY EV CHARGERS ARE ESPECIALLY VULNERABLE:
+------------------------------------------
+1. MANY ENTRY POINTS
+   - Each charger is connected to internet
+   - 10,000 chargers = 10,000 potential entry points
+
+2. DISTRIBUTED LOCATIONS  
+   - Chargers are everywhere (parking lots, homes, highways)
+   - Hard to physically secure all of them
+
+3. MULTIPLE CONNECTIONS
+   - Connected to: Power grid + Internet + Payment systems + User phones
+   - More connections = More attack surfaces
+
+4. RAPID GROWTH
+   - New chargers being installed faster than security can keep up
+   - Many manufacturers prioritize features over security
+
+5. HIGH IMPACT
+   - Compromising chargers can affect both:
+     * Individual users (steal payment info, damage cars)
+     * Entire grid (coordinate attack to cause blackout)
+
+
+THE SOLUTION: OUR ML-BASED INTRUSION DETECTION
+----------------------------------------------
+This is where our project comes in:
+
+Instead of trusting all incoming data/requests:
+1. MONITOR all electrical signals and requests
+2. USE ML to learn what "normal" looks like
+3. DETECT anything that deviates from normal
+4. BLOCK malicious requests before they cause damage
+5. ALERT operators for investigation
+
+    Normal Request                    Attack Request
+    ─────────────                    ──────────────
+         │                                │
+         ▼                                ▼
+    ┌─────────────────────────────────────────────────┐
+    │           ML INTRUSION DETECTION                │
+    │                                                 │
+    │  "Does this look normal?"                      │
+    │                                                 │
+    │  LR Model: Check probability                    │
+    │  SVM Model: Check classification               │
+    └─────────────────────────────────────────────────┘
+         │                                │
+         ▼                                ▼
+      ALLOW ✓                         BLOCK ✗
+    (Process request)              (Alert operator)
+
+
+SUMMARY: Why Electrical Grids Can Be Hacked
+-------------------------------------------
+1. Modern grids are NOT purely electrical - they have software everywhere
+2. Software connects to networks (internet, cellular, etc.)
+3. Networks can be accessed by hackers remotely
+4. Hackers send malicious commands or fake data
+5. Grid equipment responds to these fake commands
+6. Physical damage or blackouts occur
+
+The electricity itself isn't "hacked" - the CONTROL SYSTEMS are hacked,
+which then cause the electrical components to behave incorrectly.
+
+================================================================================
 3. SOLUTION ARCHITECTURE (HOW IT WORKS?)
 ================================================================================
 
