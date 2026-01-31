@@ -1,0 +1,18 @@
+Intrusion Detection System Results - Intrusion Detection
+==================================================
+
+Dataset: data_attack/attack_dataset.csv
+Samples: 100
+Features: ['voltage', 'current', 'active_power', 'reactive_power', 'frequency', 'ev_demand', 'total_load']
+
+Logistic Regression:
+  Accuracy:  1.0000
+  Precision: 1.0000
+  Recall:    1.0000
+  F1 Score:  1.0000
+
+Support Vector Machine:
+  Accuracy:  1.0000
+  Precision: 1.0000
+  Recall:    1.0000
+  F1 Score:  1.0000
