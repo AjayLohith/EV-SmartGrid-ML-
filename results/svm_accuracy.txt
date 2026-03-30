@@ -1,11 +1,11 @@
 Support Vector Machine Model Results
 ========================================
 
-Accuracy:  0.9500
-Precision: 0.9542
-Recall:    0.9500
-F1 Score:  0.9496
+Accuracy:  0.9860
+Precision: 0.9860
+Recall:    0.9860
+F1 Score:  0.9860
 
 Confusion Matrix:
-[[11  0]
- [ 1  8]]
+[[501   7]
+ [  7 485]]

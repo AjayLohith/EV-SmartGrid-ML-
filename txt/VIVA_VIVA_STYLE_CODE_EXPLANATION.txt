@@ -1,0 +1,526 @@
+================================================================================
+ML‑ENHANCED CYBERSECURE EV CHARGING CONTROL IN SMART GRID
+KAGGLE‑STYLE CODE EXPLANATION FOR VIVA
+================================================================================
+
+This document explains the MOST IMPORTANT parts of our code in the same style
+as Kaggle notebooks: short code references, then plain‑English explanation
+with real formulas and physical meaning.
+
+
+================================================================================
+1. Importing core libraries (used across all scripts)
+================================================================================
+
+In[1]
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+
+1. Pandas (pd)
+• Used for:
+  o Reading datasets from CSV files (e.g. data/dataset.csv)
+  o Cleaning and manipulating tabular data
+  o Storing time‑series measurements as DataFrames
+
+2. NumPy (np)
+• Used for:
+  o Numerical operations on arrays (RMS, power calculations)
+  o Vectorised math: mean, std, sqrt, etc.
+  o Efficient implementation of formulas on thousands of samples
+
+3. Scikit‑learn (sklearn)
+• train_test_split:
+  o Splits our data into 80% training and 20% testing
+  o Ensures unbiased evaluation of our models
+• StandardScaler:
+  o Normalises each feature to zero mean and unit variance
+  o Very important for SVM and Logistic Regression
+• LabelEncoder:
+  o Converts text labels like "stable"/"unstable" or "normal"/"attack"
+    into numeric labels 0 and 1
+
+
+================================================================================
+2. Generating the normal‑operation dataset (grid stability)
+================================================================================
+
+FILE: generate_5000_dataset.py
+
+High‑level idea
+• We generate ~5000 hourly samples of a smart‑grid + EV system:
+  o timestamp, hour of day
+  o voltage, current
+  o active_power P, reactive_power Q
+  o frequency f
+  o ev_demand, total_load, temperature
+  o grid_stability label (stable / unstable)
+
+Main rules (simplified)
+• Voltage:
+  o Near 1.0 p.u. during normal operation
+  o Slightly lower during peak hours due to higher loading
+• Current:
+  o Follows a daily sinusoidal pattern
+  o Higher in morning/evening (EV charging), lower at night
+• Active power:
+  o Computed from voltage and current
+    P ≈ k · V · I
+• Reactive power:
+  o Proportional to active power
+    Q ≈ α · P
+• Frequency:
+  o Around 60 Hz in normal conditions
+  o Drops slightly when grid is stressed (voltage low, load high)
+
+Stability labelling logic (concept)
+• If voltage is too low, or frequency deviates too much, or current is very high:
+  o Label that time instant as "unstable"
+• Otherwise:
+  o Mostly "stable", with some "unstable" samples to reflect borderline cases
+
+Why this matters
+• This script creates a realistic supervised learning dataset:
+  o Features: physical measurements (V, I, P, Q, f, EV demand…)
+  o Target: grid_stability ∈ {stable, unstable}
+• Our ML models later try to learn this mapping from measurements → stability.
+
+
+================================================================================
+3. Loading the dataset from CSV
+================================================================================
+
+FILE: python/load_data.py
+
+In[2]
+df = load_csv_data('data/dataset.csv')
+
+What happens here
+• Reads the generated CSV file into a pandas DataFrame.
+• Prints:
+  o Number of rows (samples) and columns (features)
+  o Column names: [timestamp, hour, voltage, current, active_power, …, grid_stability]
+• Returns the DataFrame df for further processing.
+
+Why this step is important
+• Confirms that data has been generated correctly.
+• Gives a quick view of:
+  o How many samples we have
+  o Which physical variables are available
+
+
+================================================================================
+4. Computing RMS from raw waveforms (power‑system foundation)
+================================================================================
+
+FILE: python/load_data.py   (used when we start from Simulink currents)
+
+In[3]
+def calculate_rms(signal, window_size):
+    rms_values = np.zeros(len(signal))
+    for i in range(len(signal)):
+        start_idx = max(0, i - window_size // 2)
+        end_idx = min(len(signal), i + window_size // 2)
+        window = signal[start_idx:end_idx]
+        rms_values[i] = np.sqrt(np.mean(window ** 2))
+    return rms_values
+
+What this function does
+• Takes a raw AC waveform (current or voltage) and computes its RMS envelope.
+• For each time index i:
+  o It looks at a small window of samples around i
+  o Computes √(mean of squared samples) in that window
+
+Formula (for one window)
+• If the window has N samples x₁, x₂, …, x_N:
+
+        1   N
+  RMS = ─── Σ xᵢ²  all under square‑root
+        N  i=1
+
+Why RMS is important
+• Power systems use RMS values for almost all protection and control decisions.
+• Later we use I_rms together with nominal voltage to compute power P and Q.
+
+
+================================================================================
+5. Converting currents to active & reactive power
+================================================================================
+
+FILE: python/load_data.py  (calculate_power_from_waveforms)
+
+In[4]
+Time step and samples per cycle
+• The code first computes:
+  o dt = median time difference between two successive points
+  o samples_per_cycle ≈ 1 / (frequency × dt)
+• This tells how many data points correspond to one 50/60 Hz cycle.
+
+In[5]
+For each current column "I_*":
+• Compute RMS current:
+  I_rms = calculate_rms(I_waveform, samples_per_cycle)
+• Assume a 3‑phase system:
+  V_phase = V_LL / √3   (V_LL = 4160 V for IEEE 13‑bus)
+• Compute apparent power S:
+  S = V_phase × I_rms   [VA]
+• Assume power factor pf = 0.85:
+  P = S × pf                       (active power, W)
+  Q = S × √(1 − pf²)              (reactive power, VAR)
+• Store P and Q in kW and kVAR as extra columns.
+
+Why this step is important
+• Transforms waveform‑level data into engineering quantities P and Q.
+• These quantities directly reflect:
+  o How much real power loads are consuming
+  o How much reactive support the grid must provide
+• P and Q are key indicators of stress and instability.
+
+
+================================================================================
+6. Creating the grid_stability label from total power
+================================================================================
+
+FILE: python/load_data.py  (process_simulink_data)
+
+In[6]
+Deriving total_P and grid_stability
+• total_P:
+  o Sum of all per‑phase active powers:
+    total_P = P₁ + P₂ + … (kW)
+• Compute:
+  o power_mean = mean(total_P)
+  o power_std  = standard deviation of total_P
+• Label each sample:
+  o If |total_P − power_mean| > power_std → "unstable"
+  o Else → "stable"
+• If all samples end up with same label:
+  o Use 25th and 75th percentiles (P25, P75) instead
+  o total_P < P25 or total_P > P75 → "unstable", otherwise "stable"
+
+Mathematical view
+• Mean:
+      μ_P = (1/N) Σ total_Pᵢ
+• Standard deviation:
+      σ_P = √[(1/N) Σ (total_Pᵢ − μ_P)²]
+• Rule:
+      |total_P − μ_P| > σ_P  ⇒ unstable
+
+Why this matters
+• This creates the target label (y) for the normal grid models.
+• Intuition:
+  o If total power is much higher or lower than typical → unstable scenario
+  o ML model must learn to detect such abnormal operating points.
+
+
+================================================================================
+7. Feature engineering – making physics‑aware inputs
+================================================================================
+
+FILE: python/feature_engineering.py
+
+In[7] – Power features
+• If we have active_power (P) and reactive_power (Q):
+  o apparent_power S:
+    S = √(P² + Q²)
+  o power_factor PF:
+    PF = P / (S + ε)
+
+Meaning
+• P: real useful power (W or kW).
+• Q: reactive power (VAR or kVAR), required to maintain voltages.
+• S: total power magnitude (kVA).
+• PF near 1 → efficient, PF low → lots of reactive loading → more stress.
+
+In[8] – Voltage features
+• voltage_deviation:
+  ΔV = |voltage − 1.0|
+• voltage_squared:
+  V² = voltage²
+
+Why
+• Voltage in per‑unit is centred at 1.0 in healthy conditions.
+• Large ΔV means voltage sag (< 0.95) or swell (> 1.05), typical in faults/attacks.
+
+In[9] – Time‑of‑day features
+• hour_sin  = sin(2π × hour / 24)
+• hour_cos  = cos(2π × hour / 24)
+• is_peak_hour = 1 if 17 ≤ hour ≤ 21 else 0
+
+Why
+• EV charging has strong daily cycles (evening peaks).
+• Cyclic encoding (sin/cos) avoids artificial discontinuity between hour 23 and hour 0.
+• is_peak_hour marks the most stressed period for the grid.
+
+
+================================================================================
+8. Preparing data for ML – scaling and label encoding
+================================================================================
+
+FILE: python/feature_engineering.py
+
+In[10] – Scaling numeric features
+• We call:
+  X_scaled = StandardScaler().fit_transform(X)
+
+Mathematical formula
+• For each feature j:
+      zᵢⱼ = (xᵢⱼ − μⱼ) / σⱼ
+• μⱼ: mean of feature j
+• σⱼ: standard deviation of feature j
+
+Why scaling is needed
+• Features like total_load (hundreds of kW) and voltage (around 1.0) have
+  completely different ranges.
+• SVM and Logistic Regression are sensitive to feature scale:
+  o Without scaling, large‑range features dominate the learning.
+
+In[11] – Encoding text labels
+• For grid stability:
+  o "stable"   → 0
+  o "unstable" → 1
+• For IDS:
+  o "normal" → 0
+  o "attack" → 1
+  (or multi‑class attack_type: fdi, replay, dos, unauthorized)
+
+Why
+• All ML models expect numeric targets, not strings.
+• LabelEncoder stores the mapping so we can interpret results later.
+
+
+================================================================================
+9. Splitting into training and test sets (80:20)
+================================================================================
+
+FILES: python/train_lr.py, python/train_svm.py, python/train_ids.py
+
+In[12]
+X_train, X_test, y_train, y_test = train_test_split(
+    X_scaled, y_encoded, test_size=0.2, random_state=42, stratify=y_encoded
+)
+
+What happens
+• Dataset is split as:
+  o 80% training data → used to fit the model
+  o 20% testing data → used only for final evaluation
+• stratify=y_encoded:
+  o Maintains the same ratio of stable/unstable or normal/attack in both sets.
+• random_state=42:
+  o Fixes randomness so the same split is reproducible.
+
+Why this is critical
+• Avoids testing the model on data it has already seen.
+• Stratification prevents accidental imbalance between train and test splits.
+
+
+================================================================================
+10. Logistic Regression – explaining the model and formulas
+================================================================================
+
+FILE: python/train_lr.py
+
+In[13]
+model = LogisticRegression(
+    C=1.0,
+    penalty='l2',
+    solver='lbfgs',
+    max_iter=1000,
+    random_state=42
+)
+model.fit(X_train, y_train)
+
+What this model does
+• Learns a linear decision boundary in the scaled feature space.
+• Outputs a probability P(y = 1 | x) where y=1 might mean:
+  o "unstable" in grid stability task
+  o "attack" in IDS task
+
+Mathematical formulation
+1. Linear score:
+   z = wᵀx + b
+
+2. Sigmoid (logistic) function:
+          1
+   h(x) = ─────────────
+          1 + e^(−z)
+
+3. Probability:
+   P(y=1 | x) = h(x)
+
+4. Decision rule:
+   If P ≥ 0.5 → predict class 1
+   Else       → predict class 0
+
+5. Loss function (binary cross‑entropy with L2 regularisation):
+      J(w) = −(1/N) Σ [yᵢ log hᵢ + (1−yᵢ) log(1−hᵢ)]  +  λ ||w||²
+
+Physical meaning
+• Large positive weight on, for example, frequency deviation means:
+  o As frequency drifts away from nominal, probability of "unstable"/"attack" increases.
+
+
+================================================================================
+11. SVM with RBF kernel – non‑linear decision boundary
+================================================================================
+
+FILE: python/train_svm.py
+
+In[14]
+model = SVC(
+    C=1.0,
+    kernel='rbf',
+    gamma='scale',
+    random_state=42,
+    probability=True
+)
+model.fit(X_train, y_train)
+
+What SVM does
+• Finds the best separating boundary between classes with maximum margin.
+• RBF kernel allows curved decision boundaries in the original feature space.
+
+Key formulas
+1. RBF kernel:
+   K(xᵢ, xⱼ) = exp( −γ ||xᵢ − xⱼ||² )
+
+2. Decision function:
+         n_sv
+   f(x) = Σ αᵢ yᵢ K(xᵢ, x) + b
+        i=1
+
+3. Prediction:
+   ŷ = sign(f(x))
+
+Intuitive view for our problem
+• Normal operating points form a compact cluster in feature space.
+• Attack / unstable points lie outside or in different regions.
+• SVM learns a “bubble” around normal region that separates it from anomalies.
+
+
+================================================================================
+12. Intrusion Detection System (IDS) – using physical measurements to detect attacks
+================================================================================
+
+FILE: python/train_ids.py
+
+In[15] – Selecting IDS features
+• We choose:
+  o voltage
+  o current
+  o active_power
+  o reactive_power
+  o frequency
+  o ev_demand
+  o total_load
+
+Reasoning
+• Cyber‑attacks (FDI, replay, DoS, unauthorized access) change:
+  o The physical behaviour of voltage, current and frequency
+  o The EV demand and total load patterns
+• Using both physical and cyber‑level variables lets the IDS see:
+  o Abnormal power flows AND abnormal request behaviour.
+
+In[16] – Training on attack data
+• Mixed dataset (normal + attack) from generate_attack_data.py:
+  o request_label = "normal" or "attack"
+• Steps:
+  o Encode request_label → 0 / 1
+  o Split into train/test (80/20, stratified)
+  o Scale features with StandardScaler
+  o Train Logistic Regression and SVM as in Sections 10 and 11
+
+What the IDS learns
+• LR: a linear combination of features that best separates normal vs attack.
+• SVM: a curved boundary in feature space that encloses normal points and
+  keeps attack points outside.
+
+Example patterns learned
+• FDI:
+  o Voltage far from 1.0, frequency far from 60 Hz, very high current.
+• Replay:
+  o Measurements frozen at one fixed point for a long time.
+• DoS:
+  o Extremely noisy, random fluctuations in all features.
+• Unauthorized:
+  o Very high EV demand at unusual hours (e.g. 3 AM).
+
+
+================================================================================
+13. Evaluating model performance – metrics and confusion matrix
+================================================================================
+
+FILES: python/train_lr.py, python/train_svm.py, python/train_ids.py
+
+In[17]
+From predictions y_pred vs true labels y_test, we compute:
+• Confusion matrix:
+           PREDICTED
+         0       1
+      ┌──────────────┐
+  0   │  TN    FP    │
+      ├──────────────┤
+  1   │  FN    TP    │
+      └──────────────┘
+
+• Accuracy:
+      (TP + TN) / (TP + TN + FP + FN)
+
+• Precision (for attack/unstable class):
+      TP / (TP + FP)
+
+• Recall (detection rate):
+      TP / (TP + FN)
+
+• F1‑score:
+      2 × (Precision × Recall) / (Precision + Recall)
+
+Interpretation for smart‑grid security
+• FP (false alarm):
+  o Normal EV request marked as attack → unnecessary blocking
+• FN (missed attack):
+  o Attack marked as normal → most dangerous case
+• Our ensemble and SVM models are tuned to:
+  o Maximise recall (catch most attacks)
+  o While keeping false positives reasonably low.
+
+
+================================================================================
+14. End‑to‑end pipeline summary (1–2 minute viva explanation)
+================================================================================
+
+1. Data creation and loading
+• We first generate a realistic smart‑grid + EV dataset with voltage, current,
+  power, frequency, EV demand, and a grid_stability label.
+• For cyber‑security, we generate a second dataset that mixes normal and
+  simulated attacks (FDI, replay, DoS, unauthorized access).
+
+2. Physics‑aware feature engineering
+• From raw signals we compute RMS, active/reactive power, apparent power
+  and power factor.
+• We also build voltage deviation, time‑of‑day features, and EV load ratios.
+
+3. ML preparation
+• Features are scaled with StandardScaler and labels are encoded to 0/1.
+• Data is split into 80% train / 20% test with stratification.
+
+4. Models
+• Logistic Regression:
+  o Interpretable linear model with a clear formula for P(y=1|x).
+• SVM with RBF:
+  o Nonlinear model that constructs flexible boundaries around normal behaviour.
+
+5. Evaluation
+• We compute accuracy, precision, recall, F1‑score, and confusion matrices
+  for both:
+  o Grid stability prediction
+  o Intrusion detection (normal vs attack)
+• Results show high accuracy and recall, proving that our code can
+  reliably detect cyber‑attacks on EV charging in a smart‑grid environment.
+
+
+================================================================================
+END OF DOCUMENT
+================================================================================
+

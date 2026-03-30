@@ -1,0 +1,369 @@
+================================================================================
+EV SMARTGRID ML - COMPLETE CODE EXPLANATION
+================================================================================
+Project: ML-Enhanced Cybersecure EV Charging Control in Smart Grid
+Purpose: Federated Intrusion Detection System (FIDS) for detecting cyber-attacks
+         on EV charging infrastructure + Grid stability prediction
+
+================================================================================
+FILE 1: main.py (Main Entry Point)
+================================================================================
+PURPOSE: Single entry point with interactive menu and CLI to run all scenarios.
+
+KEY FUNCTIONS:
+- clear_screen(): Clears terminal (cls for Windows, clear for Unix)
+- print_header(): Displays project title banner
+- print_menu(): Shows interactive menu with 6 options
+- run_script(script_name, description): Executes Python scripts from /python folder
+
+SCENARIOS:
+1. scenario_normal(): Trains LR & SVM on normal grid data for stability prediction
+2. scenario_attack(): Trains IDS models to detect cyber-attacks
+3. scenario_compare(): Runs both and shows side-by-side comparison
+4. scenario_generate_attack(): Creates new attack dataset
+5. scenario_visualize(): Generates all plots
+6. scenario_all(): Runs complete pipeline (1-5)
+
+USAGE:
+- python main.py              # Interactive menu
+- python main.py --normal     # Run normal grid analysis
+- python main.py --attack     # Run attack detection
+- python main.py --all        # Run everything
+
+================================================================================
+FILE 2: generate_5000_dataset.py (Dataset Generator)
+================================================================================
+PURPOSE: Creates realistic 5000-sample smart grid dataset with hourly timestamps.
+
+DATA GENERATION LOGIC:
+- Timestamps: Hourly from Jan 1, 2026
+- Voltage: Lower (0.87-0.98) during peak hours (7-21), normal (0.98-1.03) off-peak
+- Current: Follows sinusoidal daily pattern (base 35A, peaks at ~115A)
+- Active Power: current × 1.9 + random noise
+- Reactive Power: active_power × 0.35-0.45
+- Frequency: ~60Hz, drops when voltage is low (stress indicator)
+- EV Demand: High (45-85) morning/evening rush, low (3-20) at night
+- Temperature: Sinusoidal daily pattern (peaks during day)
+
+STABILITY LABELING RULES:
+- UNSTABLE if: voltage < 0.92 OR frequency < 59.85 OR current > 100
+- BORDERLINE: 30% stable, 70% unstable if voltage < 0.95 AND frequency < 59.92
+- NORMAL: 75% stable, 25% unstable otherwise
+
+OUTPUT: data/dataset.csv (5000 rows, 11 columns)
+
+================================================================================
+FILE 3: python/load_data.py (Data Loading Module)
+================================================================================
+PURPOSE: Load and preprocess power grid data from multiple sources.
+
+KEY FUNCTIONS:
+
+1. load_mat_file(mat_path):
+   - Loads MATLAB .mat files exported from Simulink
+   - Prints available keys and array shapes
+   - Returns dictionary of signal data
+
+2. load_simulink_csv(csv_path):
+   - Loads Simulink exported CSV with time-series data
+   - Prints dataset shape, columns, time range
+
+3. load_csv_data(csv_path):
+   - Generic CSV loader for any dataset
+   - Returns pandas DataFrame
+
+4. calculate_rms(signal, window_size):
+   - Computes Root Mean Square using sliding window
+   - RMS = sqrt(mean(signal²)) for power calculations
+
+5. calculate_power_from_waveforms(df, voltage_nominal=4160, frequency=60):
+   - Converts current waveforms to power values
+   - Uses IEEE 13-bus nominal voltage (4160V)
+   - Calculates: RMS current → Apparent Power (S=V×I)
+   - Active Power: P = S × pf (power factor 0.85)
+   - Reactive Power: Q = S × sqrt(1-pf²)
+
+6. process_simulink_data(df, downsample_factor=100):
+   - Processes raw Simulink data into ML features
+   - Downsamples to reduce size
+   - Creates stability labels based on power deviation
+
+7. preprocess_data(df):
+   - Fills missing values with column means
+   - Removes duplicate rows
+
+8. split_features_target(df, target_column):
+   - Separates features (X) from target (y)
+   - Drops timestamp columns
+
+================================================================================
+FILE 4: python/feature_engineering.py (Feature Engineering Module)
+================================================================================
+PURPOSE: Create engineered features and transform data for ML models.
+
+CLASS: FeatureEngineer
+
+METHODS:
+
+1. create_power_features(df):
+   - Apparent Power: sqrt(P² + Q²)
+   - Power Factor: P / S
+   - Voltage Deviation: |voltage - 1.0|
+   - Voltage Squared, Current Squared
+   - EV Load Ratio: ev_demand / total_load
+   - Hour Sin/Cos: Cyclical time encoding
+   - Is Peak Hour: 1 if 17-21, else 0
+
+2. create_statistical_features(df, window_cols):
+   - Rolling Mean (window=3)
+   - Rolling Std (window=3)
+   - Rate of Change (diff)
+
+3. scale_features(X, method='standard'):
+   - StandardScaler: mean=0, std=1
+   - MinMaxScaler: range [0,1]
+
+4. encode_labels(y):
+   - LabelEncoder: stable→0, unstable→1
+
+5. select_features(X, y, k=10, method='f_classif'):
+   - SelectKBest with ANOVA F-test or Mutual Information
+   - Returns top k most predictive features
+
+PIPELINE: engineer_features(df, target_col)
+   - Creates power features → Scales → Encodes labels
+
+================================================================================
+FILE 5: python/generate_attack_data.py (Attack Data Generator)
+================================================================================
+PURPOSE: Create simulated cyber-attack data for IDS training.
+
+ATTACK TYPES SIMULATED:
+
+1. FALSE DATA INJECTION (FDI):
+   - Extreme voltage (0.7 or 1.3)
+   - Very high current (150-250A)
+   - Out-of-range frequency (58.5 or 61.5 Hz)
+   - Unrealistic EV demand (100-200)
+
+2. REPLAY ATTACK:
+   - Identical repeated values (voltage=0.95, current=85.5, etc.)
+   - Indicates automated/bot attacks
+
+3. DoS ATTACK:
+   - Rapid random fluctuations in all values
+   - Wide voltage range (0.8-1.1)
+   - Erratic current (20-180A)
+
+4. UNAUTHORIZED ACCESS:
+   - Low voltage (0.92) at odd hours
+   - High current spikes (~120A)
+   - Suspicious EV demand (~80)
+
+FUNCTIONS:
+- generate_attack_data(num_samples=100): Mixed dataset (60% normal, 40% attack)
+- generate_pure_attack_data(num_samples=50): 100% attack data for analysis
+
+OUTPUT:
+- data_attack/attack_dataset.csv (mixed normal+attack)
+- data_attack/pure_attack_data.csv (pure attacks with type labels)
+
+================================================================================
+FILE 6: python/train_lr.py (Logistic Regression Training)
+================================================================================
+PURPOSE: Train Logistic Regression for grid stability prediction.
+
+WORKFLOW:
+1. Load data from data/dataset.csv
+2. Preprocess (handle nulls, duplicates)
+3. Feature engineering (scale, encode)
+4. Train/Test split (80/20, stratified)
+5. Train model
+6. Cross-validation (5-fold)
+7. Evaluate & save results
+
+KEY FUNCTION - train_logistic_regression(X_train, y_train, optimize=False):
+- Default: C=1.0, L2 penalty, lbfgs solver, max_iter=1000
+- Optimized: GridSearchCV over C, penalty, solver, max_iter
+
+METRICS CALCULATED:
+- Accuracy, Precision, Recall, F1-Score
+- Confusion Matrix
+- Classification Report
+
+OUTPUT:
+- results/lr_accuracy.txt
+- models/lr_model.pkl (saved model)
+
+================================================================================
+FILE 7: python/train_svm.py (SVM Training)
+================================================================================
+PURPOSE: Train Support Vector Machine for grid stability prediction.
+
+WORKFLOW: Same as Logistic Regression
+
+KEY FUNCTION - train_svm(X_train, y_train, optimize=False):
+- Default: RBF kernel, C=1.0, gamma='scale'
+- Optimized: GridSearchCV over C, kernel (linear/rbf/poly), gamma, degree
+
+WHY SVM?
+- Effective in high-dimensional spaces
+- RBF kernel handles non-linear decision boundaries
+- Good for small-to-medium datasets
+
+OUTPUT:
+- results/svm_accuracy.txt
+- models/svm_model.pkl (saved model)
+
+================================================================================
+FILE 8: python/train_ids.py (Intrusion Detection System)
+================================================================================
+PURPOSE: Train & compare LR + SVM specifically for cyber-attack detection.
+
+KEY FUNCTION - train_ids_models(data_path, output_dir, scenario_name):
+1. Load attack dataset
+2. Auto-detect label column (attack_type/request_label/grid_stability)
+3. Select features (voltage, current, P, Q, frequency, ev_demand, total_load)
+4. Train both LR and SVM
+5. Calculate all metrics for both models
+6. Save comparison results
+
+KEY FUNCTION - plot_comparison(normal_results, attack_results, output_dir):
+- Bar chart: Accuracy comparison (Normal vs Attack data)
+- Confusion matrices for attack detection
+- All metrics radar chart
+
+MAIN WORKFLOW:
+1. Train on normal data (stability prediction)
+2. Train on attack data (intrusion detection)
+3. Compare performance side-by-side
+4. Generate comparison plots
+
+OUTPUT:
+- results_attack/ids_results.txt
+- results/normal_vs_attack_comparison.png
+
+================================================================================
+FILE 9: python/visualize_results.py (Visualization Module)
+================================================================================
+PURPOSE: Generate all plots for model evaluation and data analysis.
+
+PLOT FUNCTIONS:
+
+1. plot_confusion_matrix(y_true, y_pred):
+   - Heatmap of TP, TN, FP, FN
+   - Seaborn heatmap with annotations
+
+2. plot_feature_importance(model, feature_names):
+   - Horizontal bar chart of feature weights
+   - Works with coef_ (LR) or feature_importances_ (trees)
+
+3. plot_roc_curve(y_true, y_scores):
+   - ROC curve with AUC score
+   - Shows true positive vs false positive rate
+
+4. plot_learning_curve(model, X, y):
+   - Training vs validation score over dataset size
+   - Shows overfitting/underfitting
+
+5. plot_precision_recall_curve(y_true, y_scores):
+   - Precision-recall tradeoff curve
+   - Better than ROC for imbalanced data
+
+6. plot_model_comparison(metrics_dict):
+   - Side-by-side bar chart for multiple models
+   - Compares accuracy, precision, recall, F1
+
+7. plot_correlation_matrix(df, features):
+   - Heatmap showing feature correlations
+   - Helps identify multicollinearity
+
+8. plot_data_distribution(df, feature_cols):
+   - KDE plots for each feature
+   - Shows data spread and distribution
+
+9. generate_all_visualizations():
+   - Runs complete visualization pipeline
+   - Saves all plots to results/ folder
+
+OUTPUT FILES:
+- confusion_lr.png, confusion_svm.png
+- model_comparison.png
+- correlation_matrix.png
+- data_distribution.png
+- learning_curve.png, roc_curve.png
+
+================================================================================
+DATA FLOW SUMMARY
+================================================================================
+
+1. DATA GENERATION:
+   generate_5000_dataset.py → data/dataset.csv
+   generate_attack_data.py → data_attack/attack_dataset.csv
+
+2. DATA LOADING:
+   load_data.py reads CSV/MAT files → preprocesses → splits X/y
+
+3. FEATURE ENGINEERING:
+   feature_engineering.py → creates features → scales → encodes
+
+4. MODEL TRAINING:
+   train_lr.py → Logistic Regression → results/lr_accuracy.txt
+   train_svm.py → SVM → results/svm_accuracy.txt
+   train_ids.py → Both models on attack data → results_attack/
+
+5. VISUALIZATION:
+   visualize_results.py → all plots → results/*.png
+
+6. ORCHESTRATION:
+   main.py → runs entire pipeline via interactive menu or CLI
+
+================================================================================
+KEY ML CONCEPTS USED
+================================================================================
+
+1. SUPERVISED LEARNING: Labeled data (stable/unstable, normal/attack)
+2. BINARY CLASSIFICATION: Two-class prediction
+3. FEATURE SCALING: StandardScaler for SVM convergence
+4. CROSS-VALIDATION: 5-fold CV for reliable accuracy estimation
+5. STRATIFIED SPLIT: Maintains class balance in train/test
+6. METRICS: Accuracy, Precision (exactness), Recall (completeness), F1 (balance)
+7. CONFUSION MATRIX: TP, TN, FP, FN visualization
+8. HYPERPARAMETER TUNING: GridSearchCV for optimal model parameters
+
+================================================================================
+PROJECT ARCHITECTURE
+================================================================================
+
+EV_SmartGrid_ML/
+├── main.py                    # Entry point (run this!)
+├── generate_5000_dataset.py   # Create normal grid data
+├── data/
+│   ├── dataset.csv            # Normal operation data
+│   └── processed_data.csv     # Processed Simulink data
+├── data_attack/
+│   ├── attack_dataset.csv     # Mixed normal+attack
+│   └── pure_attack_data.csv   # Pure attack samples
+├── python/
+│   ├── load_data.py           # Data loading utilities
+│   ├── feature_engineering.py # Feature creation
+│   ├── generate_attack_data.py# Attack simulation
+│   ├── train_lr.py            # Logistic Regression
+│   ├── train_svm.py           # Support Vector Machine
+│   ├── train_ids.py           # IDS (both models)
+│   └── visualize_results.py   # Plot generation
+├── results/                   # Normal scenario outputs
+├── results_attack/            # Attack scenario outputs
+├── models/                    # Saved .pkl model files
+└── simulink/                  # MATLAB/Simulink exports
+
+================================================================================
+QUICK START
+================================================================================
+
+1. Generate data:     python generate_5000_dataset.py
+2. Run everything:    python main.py --all
+   OR
+   Interactive menu:  python main.py
+
+================================================================================

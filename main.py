@@ -30,21 +30,21 @@ def print_menu():
     │                    SELECT SCENARIO                              │
     ├─────────────────────────────────────────────────────────────────┤
     │                                                                 │
-    │   [1] NORMAL GRID      - Train models on normal operation data │
+    │   [1] NORMAL GRID      - Train models on normal operation data  │
     │                          Predict: stable vs unstable            │
     │                                                                 │
-    │   [2] ATTACK DETECTION - Train IDS on attack data              │
+    │   [2] ATTACK DETECTION - Train IDS on attack data               │
     │                          Predict: normal vs attack              │
     │                                                                 │
-    │   [3] COMPARE BOTH     - Side-by-side comparison               │
+    │   [3] COMPARE BOTH     - Side-by-side comparison                │
     │                          Shows difference in detection          │
     │                                                                 │
-    │   [4] GENERATE ATTACK  - Create new attack dataset             │
-    │                          Simulates FDI, Replay, DoS attacks    │
+    │   [4] GENERATE ATTACK  - Create new attack dataset              │
+    │                          Simulates FDI, Replay, DoS attacks     │
     │                                                                 │
-    │   [5] VISUALIZE        - Generate all plots                    │
+    │   [5] VISUALIZE        - Generate all plots                     │
     │                                                                 │
-    │   [6] RUN ALL          - Execute complete pipeline             │
+    │   [6] RUN ALL          - Execute complete pipeline              │
     │                                                                 │
     │   [0] EXIT                                                      │
     │                                                                 │
@@ -132,21 +132,21 @@ def scenario_compare():
     │                    NORMAL vs ATTACK                             │
     ├─────────────────────────────────────────────────────────────────┤
     │                                                                 │
-    │  NORMAL GRID (data/dataset.csv)                                │
-    │  ├── Purpose: Predict grid stability                           │
-    │  ├── Classes: stable, unstable                                 │
-    │  ├── Use case: Load balancing, demand prediction               │
-    │  └── Results: results/                                         │
+    │  NORMAL GRID (data/dataset.csv)                                 │
+    │  ├── Purpose: Predict grid stability                            │
+    │  ├── Classes: stable, unstable                                  │
+    │  ├── Use case: Load balancing, demand prediction                │
+    │  └── Results: results/                                          │
     │                                                                 │
-    │  ATTACK DATA (data_attack/attack_dataset.csv)                  │
-    │  ├── Purpose: Detect cyber-attacks                             │
-    │  ├── Classes: normal, attack                                   │
-    │  ├── Attack types: FDI, Replay, DoS, Unauthorized              │
-    │  └── Results: results_attack/                                  │
+    │  ATTACK DATA (data_attack/attack_dataset.csv)                   │
+    │  ├── Purpose: Detect cyber-attacks                              │
+    │  ├── Classes: normal, attack                                    │
+    │  ├── Attack types: FDI, Replay, DoS, Unauthorized               |
+    │  └── Results: results_attack/                                   │
     │                                                                 │
-    │  KEY DIFFERENCE:                                               │
-    │  - Normal data → Grid health monitoring                        │
-    │  - Attack data → Cybersecurity intrusion detection             │
+    │  KEY DIFFERENCE:                                                │
+    │  - Normal data → Grid health monitoring                         │
+    │  - Attack data → Cybersecurity intrusion detection              │
     │                                                                 │
     └─────────────────────────────────────────────────────────────────┘
     """)

@@ -1,0 +1,880 @@
+================================================================================
+     IEEE 13-BUS SIMULINK MODEL - ACTUAL CORRECT DATA FLOW DOCUMENTATION
+     EV SmartGrid ML Project - Intrusion Detection System
+================================================================================
+
+================================================================================
+SECTION 1: COMPLETE SYSTEM TOPOLOGY (TWO POWER SOURCES)
+================================================================================
+
+YOUR SYSTEM HAS TWO SEPARATE THREE-PHASE SOURCES:
+
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                                         │
+│   SOURCE 1 (Main Source):                          SOURCE 2 (Secondary Source):                        │
+│   ─────────────────────                            ──────────────────────────                          │
+│                                                                                                         │
+│   [3-Phase Source] ──► [RL Branch] ──► BUS1        [3-Phase Source] ──► BUS4 ──► [RL Branch]           │
+│                                           │                                            │               │
+│                                           │                                            │               │
+│                                           │                                            ▼               │
+│                                           │                                          BUS5              │
+│                                           │                                            │               │
+│                                           │                                          [T/F]             │
+│                                           │                                            │               │
+│                                           └───────────────────┬────────────────────────┘               │
+│                                                               │                                        │
+│                                                               ▼                                        │
+│                                                       ═══════════════                                  │
+│                                                            BUS3                                        │
+│                                                      (MAIN DIST. HUB)                                  │
+│                                                       ═══════════════                                  │
+│                                                                                                         │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+SECTION 2: DETAILED CONNECTION DIAGRAM
+================================================================================
+
+
+                    [3-Phase Source 2]
+                           │
+                         BUS4
+                           │
+                      [RL Branch]
+                           │
+                           │
+                         BUS5
+                           │
+                         [T/F]
+                           │
+                           │
+    [3-Phase Source 1]     │
+           │               │
+      [RL Branch]          │
+           │               │
+         BUS1              │
+           │               │
+         [T/F]             │
+           │               │
+         BUS2              │
+           │               │
+      [RL Branch]          │
+           │               │
+          GND              │
+           │               │
+      [RL Branch]          │
+           │               │
+           └───────────────┴───────────────────────────────────────────────────────────
+                                                      │
+    ══════════════════════════════════════════════ BUS3 ══════════════════════════════════════════
+           │                    │                     │                         │
+           │                    │                     │                         │
+       [RL Branch]            BUS9              [RL Branch8]               [C Load]
+           │                    │                     │                    (Capacitor Only)
+           │                    │                     │                         │
+         BUS6                 [T/F]                 BUS11                      GND
+           │                    │                     │
+    ───────┴───────        ────┴────         ────────┴────────
+    │             │        │       │         │               │
+  [T/F]         [T/F]   BUS10  [RL Brch]   [T/F]           [T/F]
+    │             │        │       │         │               │
+  BUS7          BUS8   [Subsys]  GND      BUS12           BUS13
+    │             │                          │               │
+ [Subsys]    [RL Branch]               [RL Branch]     [RL Branch]
+    │             │                          │               │
+[V-I Meas]      GND                        GND             GND
+    │
+[Power Box]
+  P, Q
+    │
+[simout]
+[simout1]
+
+
+================================================================================
+SECTION 3: STEP-BY-STEP POWER FLOW
+================================================================================
+
+═══════════════════════════════════════════════════════════════════════════════
+PATH 1: MAIN SOURCE TO BUS3
+═══════════════════════════════════════════════════════════════════════════════
+
+STEP 1a: SOURCE 1 STARTING POINT
+--------------------------------
+    [3-Phase Source 1] ──► [RL Branch] ──► BUS1
+    
+    - Main grid power supply
+    - RL Branch = Source impedance (resistance + inductance)
+    - Current flows to Bus1
+
+
+STEP 1b: BUS1 TO BUS2 (Transformer Path)
+----------------------------------------
+    BUS1 ──► [Transformer (T/F)] ──► BUS2 ──► [RL Branch] ──► GND
+    
+    - Transformer steps down voltage
+    - RL Branch at Bus2 = Load (EV charging or other load)
+    - Connected to ground
+
+
+STEP 1c: BUS1 TO BUS3 (Distribution Path)
+-----------------------------------------
+    BUS1
+      │
+    [RL Branch]
+      │
+      ▼
+    BUS3 (MAIN DISTRIBUTION HUB)
+    
+    - Separate RL Branch connects Bus1 to Bus3
+    - This is the main distribution feeder
+
+
+═══════════════════════════════════════════════════════════════════════════════
+PATH 2: SECONDARY SOURCE TO BUS3
+═══════════════════════════════════════════════════════════════════════════════
+
+STEP 2: SOURCE 2 PATH
+---------------------
+    [3-Phase Source 2] ──► BUS4 ──► [RL Branch] ──► BUS5 ──► [T/F] ──► BUS3
+    
+    - Second power source (backup/parallel supply)
+    - Feeds into Bus3 through Bus4 → Bus5 → Transformer
+    - Provides redundancy and power sharing
+
+
+═══════════════════════════════════════════════════════════════════════════════
+PATH 3: FROM BUS3 - FOUR DISTRIBUTION BRANCHES
+═══════════════════════════════════════════════════════════════════════════════
+
+BUS3 is the MAIN DISTRIBUTION HUB where power SPLITS into 4 branches:
+
+    ┌────────────────────────── BUS3 ──────────────────────────┐
+    │                                                          │
+    │   Branch 1      Branch 2      Branch 3       Branch 4   │
+    │      │             │             │              │        │
+    │      ▼             ▼             ▼              ▼        │
+    │  [RL Branch]     BUS9      [RL Branch8]     [C Load]    │
+    │      │             │             │              │        │
+    │      ▼             ▼             ▼              ▼        │
+    │    BUS6         [T/F]        BUS11           GND        │
+    │                    │             │                       │
+    │                    ▼             ▼                       │
+    │                 BUS10        Splits to                   │
+    │                    │         Bus12, Bus13                │
+    │                    ▼                                     │
+    │               [Subsystem]                                │
+    │                                                          │
+    └──────────────────────────────────────────────────────────┘
+
+
+BRANCH 1: BUS3 → BUS6 → BUS7/BUS8
+---------------------------------
+    BUS3
+      │
+    [RL Branch]
+      │
+    BUS6
+      │
+    ──┴──
+    │   │
+  [T/F] [T/F]
+    │     │
+  BUS7  BUS8
+    │     │
+    │   [RL Branch]
+    │     │
+    │    GND
+    │
+  [Subsystem: V-I Measurement]
+    │
+  [Power Box] ──► P (Active Power)
+    │             Q (Reactive Power)
+    │
+  [simout] ──► MATLAB Workspace (P values)
+  [simout1] ──► MATLAB Workspace (Q values)
+
+
+*** THIS IS WHERE WE MEASURE FOR ML! ***
+
+
+BRANCH 2: BUS3 → BUS9 → BUS10
+-----------------------------
+    BUS3
+      │
+    BUS9 (direct connection)
+      │
+    [T/F]
+      │
+    ──┴──
+    │   │
+ BUS10 [RL Branch]
+    │     │
+[Subsys] GND
+
+
+BRANCH 3: BUS3 → BUS11 → BUS12/BUS13
+------------------------------------
+    BUS3
+      │
+    [RL Branch8]
+      │
+    BUS11
+      │
+    ──┴──
+    │   │
+  [T/F] [T/F]
+    │     │
+ BUS12  BUS13
+    │     │
+[RL Br] [RL Branch]
+    │     │
+   GND   GND
+
+
+BRANCH 4: BUS3 → CAPACITOR LOAD
+-------------------------------
+    BUS3
+      │
+    [C Load] (Capacitor Only - Power Factor Correction)
+      │
+    GND
+
+
+================================================================================
+SECTION 4: WHY WE MEASURE AT BUS7
+================================================================================
+
+LOCATION OF V-I MEASUREMENT:
+----------------------------
+
+    BUS3 ──► [RL Branch] ──► BUS6 ──► [Transformer] ──► BUS7-----subsystem
+                                                          │
+                                                    [V-I Measurement]
+                                                          │
+                                                    [Power Block]
+                                                       P    Q
+                                                       │    │
+                                                       ▼    ▼
+                                                   [simout] [simout1]
+
+
+WHY BUS7?
+---------
+
+Reason 1: END-USER LOCATION
+    - Bus7 is AFTER a step-down transformer
+    - Represents actual EV charging station voltage level
+    - Where customers connect their EVs
+
+Reason 2: DOWNSTREAM OF MAIN HUB
+    - Path: Source → Bus1 → Bus3 → Bus6 → Bus7
+    - Any attack upstream will propagate here
+    - Captures cumulative grid effects
+
+Reason 3: ISOLATED MEASUREMENT POINT
+    - Transformer isolates Bus7 from Bus6
+    - Clean measurement without upstream noise
+    - Represents single customer/station
+
+Reason 4: REPRESENTATIVE SAMPLE
+    - Similar structure at Bus8, Bus12, Bus13
+    - ML model trained on Bus7 can generalize
+    - One measurement point is sufficient for detection
+
+
+================================================================================
+SECTION 5: PURPOSE OF EACH COMPONENT
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ COMPONENT                              │ PURPOSE                                │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│ THREE-PHASE SOURCE 1                   │ Main grid power supply                │
+│ (Before Bus1)                          │ Primary source of electricity         │
+│                                                                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│ THREE-PHASE SOURCE 2                   │ Secondary/Backup power supply         │
+│ (At Bus4)                              │ Parallel source for redundancy        │
+│                                        │ Could represent distributed generation│
+│                                                                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│ RL BRANCHES (Multiple)                 │ Transmission line impedance           │
+│                                        │ R = Resistance (losses)               │
+│                                        │ L = Inductance (reactive component)   │
+│                                        │ Also represent LOADS (EV chargers)    │
+│                                                                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│ BUS1                                   │ Primary distribution node             │
+│                                        │ Connects source to transformer        │
+│                                        │ and to main distribution (Bus3)       │
+│                                                                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│ BUS2                                   │ Secondary of main transformer         │
+│                                        │ Has RL load connected to ground       │
+│                                                                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│ BUS3                                   │ *** MAIN DISTRIBUTION HUB ***         │
+│                                        │ Central point where power splits      │
+│                                        │ Feeds Bus6, Bus9, Bus11, and C-load   │
+│                                        │ Like a neighborhood substation        │
+│                                                                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│ BUS4, BUS5                             │ Secondary source path                 │
+│                                        │ Bus4 = Source 2 connection            │
+│                                        │ Bus5 = Before transformer to Bus3     │
+│                                                                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│ BUS6                                   │ Intermediate distribution bus         │
+│                                        │ Splits to Bus7 and Bus8               │
+│                                        │ Through transformers                  │
+│                                                                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│ BUS7                                   │ *** MEASUREMENT POINT ***             │
+│                                        │ EV charging station location          │
+│                                        │ V-I measurement block here            │
+│                                        │ Power (P, Q) calculated here          │
+│                                        │ Data exported to simout, simout1      │
+│                                                                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│ BUS8                                   │ Another end-user bus                  │
+│                                        │ Has RL load (EV charger)              │
+│                                        │ Parallel to Bus7                      │
+│                                                                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│ BUS9, BUS10                            │ Another distribution branch           │
+│                                        │ Bus9 direct from Bus3                 │
+│                                        │ Bus10 after transformer               │
+│                                        │ Has subsystem for monitoring          │
+│                                                                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│ BUS11                                  │ Distribution point for Bus12, Bus13   │
+│                                        │ Fed through RL Branch8 from Bus3      │
+│                                                                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│ BUS12, BUS13                           │ End-user buses                        │
+│                                        │ Each has RL load (EV chargers)        │
+│                                        │ After transformers from Bus11         │
+│                                                                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│ TRANSFORMERS (T/F)                     │ Voltage step-down                     │
+│ (Multiple in system)                   │ Isolate different voltage levels      │
+│                                        │ - T/F at Bus1→Bus2                    │
+│                                        │ - T/F at Bus5→Bus3                    │
+│                                        │ - T/F at Bus6→Bus7                    │
+│                                        │ - T/F at Bus6→Bus8                    │
+│                                        │ - T/F at Bus9→Bus10                   │
+│                                        │ - T/F at Bus11→Bus12                  │
+│                                        │ - T/F at Bus11→Bus13                  │
+│                                                                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│ C LOAD (Capacitor Only)                │ POWER FACTOR CORRECTION               │
+│ (At Bus3)                              │ Generates reactive power (Q)          │
+│                                        │ Compensates for inductive EV loads    │
+│                                        │ Improves grid efficiency              │
+│                                        │ No R or L - only Capacitor            │
+│                                                                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│ V-I MEASUREMENT (At Bus7)              │ Measures voltage and current          │
+│                                        │ Outputs Vabc (3-phase voltages)       │
+│                                        │ Outputs Iabc (3-phase currents)       │
+│                                                                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│ POWER BOX                              │ Calculates P and Q from V, I          │
+│                                        │ P = Active Power (Watts)              │
+│                                        │ Q = Reactive Power (VARs)             │
+│                                                                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│ simout, simout1                        │ TO WORKSPACE blocks                   │
+│                                        │ simout = P values (time series)       │
+│                                        │ simout1 = Q values (time series)      │
+│                                        │ Data goes to MATLAB workspace         │
+│                                        │ Exported to Python for ML             │
+│                                                                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│ SUBSYSTEMS (At Bus7, Bus10)            │ Additional monitoring/control         │
+│                                        │ May contain protection logic          │
+│                                        │ Or additional measurements            │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+SECTION 6: CAPACITOR LOAD (C ONLY) - POWER FACTOR CORRECTION
+================================================================================
+
+WHY ONLY CAPACITOR AT BUS3?
+---------------------------
+
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │                                                                         │
+    │   PROBLEM: EV CHARGERS ARE INDUCTIVE                                   │
+    │   ────────────────────────────────                                     │
+    │                                                                         │
+    │   EV chargers contain:                                                 │
+    │   - Transformers (inductors)                                           │
+    │   - Rectifier coils (inductors)                                        │
+    │   - Filter inductors                                                   │
+    │                                                                         │
+    │   Inductors CONSUME reactive power (Q)                                 │
+    │   This causes LAGGING power factor (0.7-0.85)                         │
+    │                                                                         │
+    │   Result:                                                              │
+    │   - Grid must supply extra current                                     │
+    │   - More losses in transmission lines                                  │
+    │   - Voltage drops                                                      │
+    │                                                                         │
+    ├─────────────────────────────────────────────────────────────────────────┤
+    │                                                                         │
+    │   SOLUTION: CAPACITOR BANK AT BUS3                                     │
+    │   ───────────────────────────────                                      │
+    │                                                                         │
+    │   Capacitors GENERATE reactive power (Q)                               │
+    │                                                                         │
+    │   Placement at Bus3:                                                   │
+    │   - Central location (main hub)                                        │
+    │   - Compensates for ALL downstream loads                               │
+    │   - Most efficient placement                                           │
+    │                                                                         │
+    │   Result:                                                              │
+    │   - Power factor improves to 0.95-0.99                                 │
+    │   - Less current from sources                                          │
+    │   - Reduced losses                                                     │
+    │   - Better voltage regulation                                          │
+    │                                                                         │
+    └─────────────────────────────────────────────────────────────────────────┘
+
+
+    WITHOUT CAPACITOR:                    WITH CAPACITOR:
+    
+    Source supplies:                      Source supplies:
+    P = 100 kW                            P = 100 kW
+    Q = 60 kVAR                           Q = 10 kVAR (capacitor provides 50)
+    S = 116.6 kVA                         S = 100.5 kVA
+    PF = 0.86 (poor)                      PF = 0.995 (excellent)
+    I = High                              I = Lower (less losses)
+
+
+================================================================================
+SECTION 7: DATA FLOW FROM SIMULINK TO ML
+================================================================================
+
+STEP-BY-STEP PROCESS:
+---------------------
+
+1. POWER ON (Click RUN in Simulink)
+   │
+   ├── Source 1 generates 3-phase AC → flows through Bus1 → Bus3
+   │
+   └── Source 2 generates 3-phase AC → flows through Bus4 → Bus5 → Bus3
+
+2. POWER DISTRIBUTION AT BUS3
+   │
+   ├── Branch to Bus6 → Bus7 (measurement point)
+   ├── Branch to Bus9 → Bus10
+   ├── Branch to Bus11 → Bus12, Bus13
+   └── Capacitor load (power factor correction)
+
+3. MEASUREMENT AT BUS7
+   │
+   ├── V-I Measurement Block captures Vabc, Iabc
+   │
+   └── Power Block calculates:
+       │
+       ├── P = Active Power
+       └── Q = Reactive Power
+
+4. TO WORKSPACE
+   │
+   ├── simout = [P(t=0), P(t=0.001), P(t=0.002), ...]
+   │
+   └── simout1 = [Q(t=0), Q(t=0.001), Q(t=0.002), ...]
+
+5. EXPORT TO PYTHON
+   │
+   ├── Save as .mat: save('data.mat', 'simout', 'simout1')
+   │
+   └── Or save as .csv: csvwrite('data.csv', [simout, simout1])
+
+6. ML MODEL TRAINING
+   │
+   ├── Load data in Python
+   ├── Feature engineering (power factor, apparent power, etc.)
+   ├── Train Logistic Regression and SVM
+   └── Detect attacks based on P and Q anomalies
+
+
+================================================================================
+SECTION 8: SUMMARY - CORRECT TOPOLOGY
+================================================================================
+
+CORRECT POWER FLOW:
+-------------------
+
+    [Source 1] → [RL] → Bus1 ──┬──► [T/F] → Bus2 → [RL] → GND
+                               │
+                             [RL]        [Source 2] → Bus4 → [RL] → Bus5 → [T/F]
+                               │                                            │
+                               └────────────────────┬───────────────────────┘
+                                                    │
+                                                  BUS3 (MAIN HUB)
+                                                    │
+                    ┌───────────────┬───────────────┼───────────────┐
+                    │               │               │               │
+                  [RL]            Bus9           [RL8]          [C Load]
+                    │               │               │               │
+                  Bus6           [T/F]           Bus11            GND
+                  /   \             │             /   \
+               [T/F] [T/F]      Bus10──[RL]   [T/F] [T/F]
+                 │      │           │   GND     │      │
+               Bus7   Bus8     [Subsys]      Bus12  Bus13
+                 │      │                      │      │
+            [V-I Meas] [RL]                  [RL]   [RL]
+                 │      │                      │      │
+            [Pwr Box]  GND                   GND    GND
+               P  Q
+               │  │
+           simout simout1
+
+
+KEY POINTS:
+-----------
+1. TWO power sources: Source 1 (before Bus1) and Source 2 (at Bus4)
+2. BUS3 is the MAIN DISTRIBUTION HUB
+3. Bus7 is where we MEASURE P and Q (after transformer from Bus6)
+4. C Load at Bus3 is for POWER FACTOR CORRECTION (capacitor only)
+5. RL branches represent transmission lines and EV charging loads
+6. Multiple transformers step down voltage for end-user buses
+
+
+================================================================================
+SECTION 9: NO CHANGES NEEDED IN ML CODES
+================================================================================
+
+YOUR EXISTING ML CODES REMAIN UNCHANGED:
+----------------------------------------
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                 │
+│   File                        │ Status      │ Reason                           │
+│   ────────────────────────────│─────────────│──────────────────────────────────│
+│                                                                                 │
+│   python/load_data.py         │ NO CHANGE   │ Loads CSV data - format same     │
+│   python/feature_engineering.py│ NO CHANGE   │ Uses P, Q features - same        │
+│   python/train_lr.py          │ NO CHANGE   │ LR model - works with same data  │
+│   python/train_svm.py         │ NO CHANGE   │ SVM model - works with same data │
+│   python/train_ids.py         │ NO CHANGE   │ IDS training - same features     │
+│   python/visualize_results.py │ NO CHANGE   │ Visualization - same outputs     │
+│   python/generate_attack_data.py│ NO CHANGE │ Attack generation - same format  │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+WHY NO CHANGES?
+---------------
+1. ML models use P (active power) and Q (reactive power) as inputs
+2. These values still come from simout and simout1 at Bus7
+3. The network topology doesn't change WHAT we measure
+4. It only changes WHERE the power comes from (which we don't care)
+5. Attack patterns in P and Q remain the same regardless of topology
+
+
+********************************************************************************
+
+
+SIMULINK MODEL vs REAL PRODUCTION:
+----------------------------------
+
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │                                                                         │
+    │   SIMULINK MODEL (Current):                                            │
+    │   ─────────────────────────                                            │
+    │                                                                         │
+    │   Bus7 ──► [V-I Measurement] ──► [Power Box] ──► simout/simout1        │
+    │            (Simulink block)      (Math calc)     (Data logging)        │
+    │                                                                         │
+    │   • Purpose: Capture V, I values for ML training                       │
+    │   • NOT hackable (just mathematical simulation)                        │
+    │                                                                         │
+    ├─────────────────────────────────────────────────────────────────────────┤
+    │                                                                         │
+    │   REAL PRODUCTION (Deployment):                                        │
+    │   ─────────────────────────────                                        │
+    │                                                                         │
+    │   Bus7 ──► [SCADA SYSTEM] ──► [Control Center] ──► ML Detection        │
+    │            (RTU/PMU)          (Database)          (Real-time)          │
+    │                 ▲                                                       │
+    │                 │                                                       │
+    │           HACKABLE!                                                     │
+    │           - Network attacks                                            │
+    │           - Protocol exploits                                          │
+    │           - Malware injection                                          │
+    │           - False data injection                                       │
+    │                                                                         │
+    └─────────────────────────────────────────────────────────────────────────┘
+
+
+DATA FLOW COMPARISON:
+---------------------
+
+    SIMULINK (For Training):
+    
+    [Physical Grid] → [V-I Meas Block] → [Power Box] → [simout] → CSV → ML Training
+                      (Simulink lib)     (P, Q calc)   (MATLAB)   File   (Python)
+    
+    
+    REAL PRODUCTION (Deployment):
+    
+    [Physical Grid] → [SCADA/PMU] → [Communication] → [Control Center] → ML Detection
+                      (Hardware)    Network (TCP/IP)  (Software DB)     (Real-time)
+                           ▲              ▲                 ▲
+                           │              │                 │
+                      ATTACK POINTS (Hackable in real world)
+
+
+================================================================================
+SECTION 12: HOW ATTACKS ARE SIMULATED FOR ML TRAINING
+================================================================================
+
+Since there are no hackable components in the Simulink model, attacks are
+SIMULATED in the DATA itself (not in the model):
+
+
+METHOD 1: Python Data Manipulation (Your Current Approach)
+----------------------------------------------------------
+
+    Step 1: Run normal Simulink simulation
+            → Get normal P, Q values in simout/simout1
+            
+    Step 2: Export to CSV (data/simulink_data.csv)
+    
+    Step 3: Python script (generate_attack_data.py) adds:
+            → False Data Injection: Add noise/bias to P, Q values
+            → DoS Simulation: Set P=0, Q=0 for some samples
+            → Scaling Attacks: Multiply P, Q by random factors
+            
+    Step 4: Save as attack_dataset.csv
+    
+    Step 5: Train ML model to distinguish normal vs attack
+
+
+METHOD 2: Simulink Signal Injection (Alternative)
+-------------------------------------------------
+
+    You can add injection blocks in Simulink:
+    
+    [V-I Measurement] → [+ Sum Block] → [Power Box]
+                              ▲
+                              │
+                        [Attack Signal]
+                        (Step, Random, etc.)
+    
+    This simulates what happens when SCADA is compromised in real world.
+
+
+================================================================================
+SECTION 13: ATTACK SCENARIOS (What SCADA Attacks Look Like)
+================================================================================
+
+In REAL PRODUCTION, when SCADA is compromised, these attacks affect P, Q values:
+
+
+ATTACK TYPE 1: FALSE DATA INJECTION (FDI)
+-----------------------------------------
+
+    Real World:  Attacker hacks SCADA RTU, sends fake V, I readings
+    
+    Effect:      P, Q values are WRONG (too high or too low)
+    
+    Simulation:  In Python, add bias: P_attack = P_normal + random_noise
+    
+    Example:
+    Normal:     P = 85 kW,  Q = 32 kVAR
+    Attack:     P = 145 kW, Q = 58 kVAR  ← ML detects abnormal values
+
+
+ATTACK TYPE 2: DENIAL OF SERVICE (DoS)
+--------------------------------------
+
+    Real World:  Attacker floods SCADA network, blocks communication
+    
+    Effect:      P, Q values drop to ZERO or show errors
+    
+    Simulation:  In Python, set: P_attack = 0, Q_attack = 0
+    
+    Example:
+    Normal:     P = 85 kW,  Q = 32 kVAR
+    Attack:     P = 0 kW,   Q = 0 kVAR   ← ML detects sudden drop
+
+
+ATTACK TYPE 3: REPLAY ATTACK
+----------------------------
+
+    Real World:  Attacker records old data, replays it during attack
+    
+    Effect:      P, Q show OLD values (look normal but are stale)
+    
+    Simulation:  In Python, repeat old rows in dataset
+    
+    Example:
+    Normal (t=10):  P = 85 kW
+    Normal (t=20):  P = 90 kW
+    Attack (t=20):  P = 85 kW  ← Replayed old value (harder to detect)
+
+
+ATTACK TYPE 4: SCALING ATTACK
+-----------------------------
+
+    Real World:  Attacker modifies SCADA calibration factors
+    
+    Effect:      P, Q values are scaled by wrong factor
+    
+    Simulation:  In Python, multiply: P_attack = P_normal * 1.3
+    
+    Example:
+    Normal:     P = 85 kW,  Q = 32 kVAR
+    Attack:     P = 110 kW, Q = 42 kVAR  ← Scaled by 1.3
+
+
+================================================================================
+SECTION 14: WHAT YOUR ML MODEL DETECTS
+================================================================================
+
+Your ML models (Logistic Regression, SVM) analyze P and Q values from simout/simout1
+to detect these attack patterns:
+
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │                                                                         │
+    │   Attack Type              │  Effect on P, Q    │  ML Detection         │
+    │   ─────────────────────────┼────────────────────┼───────────────────────│
+    │                            │                    │                       │
+    │   FDI (False values)       │  Wrong P, Q        │  ✓ DETECTED           │
+    │                            │  (abnormal range)  │  (out of bounds)      │
+    │                            │                    │                       │
+    │   DoS (Blocked comm)       │  P=0, Q=0          │  ✓ DETECTED           │
+    │                            │  (sudden drop)     │  (zero pattern)       │
+    │                            │                    │                       │
+    │   Scaling (Wrong factor)   │  Consistent bias   │  ✓ DETECTED           │
+    │                            │  (shifted values)  │  (statistical shift)  │
+    │                            │                    │                       │
+    │   Replay (Old data)        │  Stale values      │  ✗ HARDER             │
+    │                            │  (look normal)     │  (needs time context) │
+    │                            │                    │                       │
+    └─────────────────────────────────────────────────────────────────────────┘
+
+
+DATA FLOW FOR ML DETECTION:
+---------------------------
+
+    TRAINING PHASE:
+    ───────────────
+    
+    [Simulink] → simout/simout1 → [CSV Export] → [Python: Add Attacks] → [Train LR/SVM]
+                 (Normal P, Q)    (Normal data)   (Attack data)          (Learn patterns)
+    
+    
+    DEPLOYMENT PHASE (Real Production):
+    ────────────────────────────────────
+    
+    [Physical Grid] → [SCADA] → [P, Q values] → [Trained ML Model] → "NORMAL" or "ATTACK!"
+                      (Hackable)                 (LR/SVM)
+
+
+================================================================================
+SECTION 15: SUMMARY
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   KEY POINTS:                                                               │
+│   ───────────                                                               │
+│                                                                             │
+│   1. NO HACKABLE COMPONENTS in current Simulink model                       │
+│      - All blocks are physical simulation or mathematical                   │
+│      - V-I Measurement is a Simulink library block (not software)           │
+│      - Subsystems contain physical EV charger components                    │
+│                                                                             │
+│   2. IN REAL PRODUCTION: Replace V-I Measurement with SCADA                 │
+│      - SCADA IS hackable (network, protocols, software)                     │
+│      - Attacks target SCADA communication and software                      │
+│      - P, Q values get corrupted → ML detects anomalies                     │
+│                                                                             │
+│   3. DATA FLOW UNCHANGED:                                                   │
+│      - Simulink: V-I Meas → Power Box → simout/simout1 → P, Q              │
+│      - Production: SCADA → Control Center → P, Q                           │
+│      - ML Models: Same input (P, Q features)                                │
+│                                                                             │
+│   4. ATTACK SIMULATION:                                                     │
+│      - Attacks are simulated in DATA (Python scripts)                       │
+│      - Add noise, bias, zeros to P, Q values                                │
+│      - ML learns to distinguish normal vs attack patterns                   │
+│                                                                             │
+│   5. YOUR ML MODELS WORK THE SAME WAY:                                      │
+│      - Input: P, Q values                                                   │
+│      - Output: Normal or Attack classification                              │
+│      - No changes needed to Python code                                     │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+COMPLETE SYSTEM OVERVIEW:
+-------------------------
+
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │                                                                         │
+    │   SIMULINK MODEL                    REAL PRODUCTION                     │
+    │   (For Training)                    (For Deployment)                    │
+    │                                                                         │
+    │   [IEEE 13-Bus Grid]                [Physical Grid]                     │
+    │          │                                 │                            │
+    │          ▼                                 ▼                            │
+    │   [V-I Measurement]              ┌─────────────────┐                   │
+    │   (Simulink block)               │  SCADA SYSTEM   │ ◄── HACKABLE!    │
+    │          │                       │  (RTU, PMU)     │                   │
+    │          ▼                       └────────┬────────┘                   │
+    │   [Power Box: P, Q]                       │                            │
+    │          │                                ▼                            │
+    │          ▼                       [Control Center]                      │
+    │   [simout, simout1]                       │                            │
+    │          │                                ▼                            │
+    │          ▼                       [ML Detection]                        │
+    │   [CSV Export]                   (Real-time LR/SVM)                    │
+    │          │                                │                            │
+    │          ▼                                ▼                            │
+    │   [Python: Add Attacks]          "NORMAL" or "ATTACK!"                │
+    │          │                                                             │
+    │          ▼                                                             │
+    │   [Train LR/SVM]                                                       │
+    │                                                                         │
+    └─────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+                              END OF DOCUMENTATION
+================================================================================
+
+File: ieee13bus_ACTUAL_dataflow.txt
+Project: EV SmartGrid ML - Intrusion Detection System
+Date: 2026-02-04
+Updated: Corrected to reflect NO hackable components in Simulink model
+         SCADA replaces V-I Measurement in real production deployment

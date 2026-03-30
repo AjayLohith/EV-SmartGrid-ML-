@@ -1,0 +1,1643 @@
+================================================================================
+     EV SMARTGRID ML - COMPLETE CODE EXPLANATION WITH MATHEMATICAL FORMULAS
+          Machine Learning Algorithms, Metrics & Result Interpretation
+================================================================================
+
+This document provides detailed explanation of all machine learning code used
+in the EV SmartGrid Intrusion Detection System, including mathematical formulas
+for how each algorithm works and how results are computed.
+
+================================================================================
+                         TABLE OF CONTENTS
+================================================================================
+
+1.  DATA LOADING & PREPROCESSING
+2.  DATA CLEANING (NaN & INFINITY REMOVAL)
+3.  FEATURE-TARGET SEPARATION
+4.  TRAIN-TEST SPLIT
+5.  CLASS DISTRIBUTION ANALYSIS
+6.  LABEL ENCODING
+7.  FEATURE SCALING FORMULAS
+8.  LOGISTIC REGRESSION (WITH FORMULAS)
+9.  SUPPORT VECTOR MACHINE (WITH FORMULAS)
+10. DECISION TREE CLASSIFIER (WITH FORMULAS)
+11. RANDOM FOREST CLASSIFIER (WITH FORMULAS)
+12. EXTRA TREES CLASSIFIER (WITH FORMULAS)
+13. XGBOOST CLASSIFIER (WITH FORMULAS)
+14. BAGGING CLASSIFIER (WITH FORMULAS)
+15. VOTING CLASSIFIER (ENSEMBLE)
+16. EVALUATION METRICS (ALL FORMULAS)
+17. CONFUSION MATRIX INTERPRETATION
+18. ROC-AUC CURVE ANALYSIS
+19. CROSS-VALIDATION (WITH FORMULAS)
+20. HYPERPARAMETER TUNING (GRID SEARCH)
+21. MODEL COMPARISON & FINAL RESULTS
+
+
+================================================================================
+                1. DATA LOADING & PREPROCESSING
+================================================================================
+
+CODE:
+-----
+    import pandas as pd
+    import numpy as np
+    df = pd.read_csv('data/dataset.csv')
+
+PURPOSE:
+--------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Pandas (pd)                                                                 │
+│   • Reading datasets (CSV, Excel)                                           │
+│   • Data cleaning and manipulation                                          │
+│   • Handling tabular data using DataFrames                                  │
+│                                                                             │
+│ NumPy (np)                                                                  │
+│   • Numerical operations                                                    │
+│   • Arrays, mathematical functions                                          │
+│   • Supporting computations behind pandas and ML libraries                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+DATASET STRUCTURE:
+------------------
+Your dataset contains power system measurements:
+
+    Column Pattern: R1-PA1:VH, R2-PA2:VH, etc.
+
+    Breakdown:
+    ┌──────────┬─────────────────────────────────────────────────────────────┐
+    │ R1       │ Relay 1 (substation or protection relay)                    │
+    │ PA       │ Phasor Analyzer                                             │
+    │ 1        │ Channel number                                              │
+    │ VH       │ Voltage magnitude (High)                                    │
+    └──────────┴─────────────────────────────────────────────────────────────┘
+
+COMMON SUFFIX MEANINGS:
+-----------------------
+    ┌──────────┬─────────────────────────────────────────────────────────────┐
+    │ Suffix   │ Meaning                                                     │
+    ├──────────┼─────────────────────────────────────────────────────────────┤
+    │ VH       │ Voltage magnitude                                           │
+    │ IH       │ Current magnitude                                           │
+    │ V        │ Voltage phasor                                              │
+    │ I        │ Current phasor                                              │
+    │ F        │ Frequency                                                   │
+    │ DF       │ Rate of change of frequency (ROCOF)                         │
+    │ Z        │ Impedance                                                   │
+    │ ZH       │ Impedance magnitude                                         │
+    │ S        │ Apparent power / Status signal                              │
+    └──────────┴─────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+                2. DATA CLEANING (NaN & INFINITY REMOVAL)
+================================================================================
+
+CODE:
+-----
+    df = df[~df.isin([np.nan, np.inf, -np.inf]).any(1)]
+
+STEP-BY-STEP EXPLANATION:
+-------------------------
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ df.isin([np.nan, np.inf, -np.inf])                                          │
+│   • Checks every cell in the DataFrame                                      │
+│   • Marks True if the value is:                                             │
+│       ○ NaN (missing value)                                                 │
+│       ○ +∞ (positive infinity)                                              │
+│       ○ -∞ (negative infinity)                                              │
+│                                                                             │
+│ .any(1)                                                                     │
+│   • Checks row-wise (axis=1)                                                │
+│   • Returns True if ANY column in that row contains invalid value           │
+│                                                                             │
+│ ~ (tilde operator)                                                          │
+│   • Negates the condition                                                   │
+│   • Keeps only rows with ALL valid numerical values                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+WHY THIS IS CRITICAL:
+---------------------
+    • ML algorithms CANNOT handle NaN or infinity
+    • Prevents:
+        ○ Training errors
+        ○ Division by zero
+        ○ Biased or unstable models
+        ○ Gradient explosion in neural networks
+
+RESULT: Clean, fully numerical dataset ready for ML
+
+
+================================================================================
+                3. FEATURE-TARGET SEPARATION
+================================================================================
+
+CODE:
+-----
+    X = df.drop('marker', axis=1)    # Input features
+    y = df['marker']                  # Output labels
+
+EXPLANATION:
+------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ X (Features)                                                                │
+│   • All columns EXCEPT the target                                           │
+│   • Contains: voltages, currents, frequency, impedance, logs                │
+│   • Shape: (n_samples, n_features)                                          │
+│                                                                             │
+│ y (Target)                                                                  │
+│   • The 'marker' column only                                                │
+│   • Values: Normal (0) or Attack (1)                                        │
+│   • Shape: (n_samples,)                                                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+STANDARD ML FORMAT:
+-------------------
+    X → What the system observes (sensor readings)
+    y → What the system is experiencing (normal/attack)
+
+
+================================================================================
+                4. TRAIN-TEST SPLIT
+================================================================================
+
+CODE:
+-----
+    from sklearn.model_selection import train_test_split
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, 
+        test_size=0.2, 
+        random_state=21
+    )
+
+MATHEMATICAL EXPLANATION:
+-------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   Total Dataset = D = {(x₁, y₁), (x₂, y₂), ..., (xₙ, yₙ)}                  │
+│                                                                             │
+│   Split Ratio: 80% Training, 20% Testing                                    │
+│                                                                             │
+│   Training Set Size = ⌊0.8 × n⌋                                             │
+│   Testing Set Size  = n - Training Set Size                                 │
+│                                                                             │
+│   Example (n = 4618):                                                       │
+│       Training: 3694 samples                                                │
+│       Testing:  924 samples                                                 │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+PARAMETERS:
+-----------
+    • test_size=0.2 → 20% of data reserved for testing
+    • random_state=21 → Ensures reproducibility (same split every run)
+
+PURPOSE:
+--------
+    ┌────────────────────┬────────────────────────────────────────────────────┐
+    │ Training Set       │ Model learns patterns from this data               │
+    │ Testing Set        │ Unbiased performance evaluation (unseen data)      │
+    └────────────────────┴────────────────────────────────────────────────────┘
+
+
+================================================================================
+                5. CLASS DISTRIBUTION ANALYSIS
+================================================================================
+
+CODE:
+-----
+    df['marker'].value_counts()
+
+OUTPUT EXAMPLE:
+---------------
+    Attack     3610  (~78%)
+    Natural    1008  (~22%)
+
+IMBALANCE ANALYSIS:
+-------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ CLASS IMBALANCE DETECTED                                                    │
+│                                                                             │
+│ Imbalance Ratio = Majority Class / Minority Class                           │
+│                 = 3610 / 1008                                               │
+│                 = 3.58 : 1                                                  │
+│                                                                             │
+│ This means:                                                                 │
+│   • Dataset has ~3.6× more Attack samples than Normal                       │
+│   • Models may become BIASED toward Attack class                            │
+│   • Accuracy alone may be MISLEADING                                        │
+│                                                                             │
+│ Solution:                                                                   │
+│   • Use Precision, Recall, F1-score for evaluation                          │
+│   • Use ROC-AUC curve                                                       │
+│   • Consider SMOTE or class weights                                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+                6. LABEL ENCODING
+================================================================================
+
+CODE:
+-----
+    from sklearn.preprocessing import LabelEncoder
+    encoder = LabelEncoder()
+    df['marker'] = encoder.fit_transform(df['marker'])
+
+TRANSFORMATION:
+---------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   Original Label     →    Encoded Label                                     │
+│   ─────────────────────────────────────                                     │
+│   "Normal"           →         0                                            │
+│   "Attack"           →         1                                            │
+│                                                                             │
+│   Now your problem is:                                                      │
+│       BINARY CLASSIFICATION                                                 │
+│       y ∈ {0, 1}                                                            │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+WHY ENCODING IS NEEDED:
+-----------------------
+    • ML algorithms cannot understand text labels
+    • Mathematical operations require numerical values
+    • Loss functions need numeric targets
+
+
+================================================================================
+                7. FEATURE SCALING FORMULAS
+================================================================================
+
+STANDARD SCALING (Z-SCORE NORMALIZATION):
+-----------------------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                        x - μ                                                │
+│   x_scaled = ─────────────────                                              │
+│                   σ                                                         │
+│                                                                             │
+│   where:                                                                    │
+│       x = original feature value                                            │
+│       μ = mean of the feature                                               │
+│       σ = standard deviation of the feature                                 │
+│                                                                             │
+│   Result: Mean = 0, Standard Deviation = 1                                  │
+│                                                                             │
+│   Used by: SVM, Logistic Regression, Neural Networks                        │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+MIN-MAX SCALING:
+----------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                      x - x_min                                              │
+│   x_scaled = ─────────────────────                                          │
+│                x_max - x_min                                                │
+│                                                                             │
+│   Result: Range [0, 1]                                                      │
+│                                                                             │
+│   Used by: Neural Networks, KNN                                             │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+                8. LOGISTIC REGRESSION (WITH FORMULAS)
+================================================================================
+
+CODE:
+-----
+    from sklearn.linear_model import LogisticRegression
+    lr = LogisticRegression()
+    lr.fit(X_train, y_train)
+    y_pred = lr.predict(X_test)
+
+MATHEMATICAL MODEL:
+-------------------
+
+STEP 1: Linear Combination
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   z = w₀ + w₁x₁ + w₂x₂ + ... + wₙxₙ                                        │
+│                                                                             │
+│   z = w₀ + Σ(wᵢ × xᵢ)  for i = 1 to n                                      │
+│                                                                             │
+│   Or in matrix form:                                                        │
+│   z = w^T × x + b                                                           │
+│                                                                             │
+│   where:                                                                    │
+│       w = weight vector (learned parameters)                                │
+│       x = feature vector (input)                                            │
+│       b = bias term                                                         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+STEP 2: Sigmoid (Logistic) Function
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                         1                                                   │
+│   σ(z) = P(y=1|x) = ─────────────                                           │
+│                       1 + e^(-z)                                            │
+│                                                                             │
+│   Properties:                                                               │
+│       • Output range: (0, 1)                                                │
+│       • σ(0) = 0.5                                                          │
+│       • σ(+∞) → 1                                                           │
+│       • σ(-∞) → 0                                                           │
+│                                                                             │
+│   Sigmoid Curve:                                                            │
+│                                                                             │
+│       1.0  ──────────────────────────────●●●●●●                             │
+│       0.8  ─────────────────────────●●●●                                    │
+│       0.5  ────────────────────●●●● ← Decision Boundary                     │
+│       0.2  ───────────────●●●●                                              │
+│       0.0  ●●●●●●●────────────────────────────────                          │
+│           -6  -4  -2   0   2   4   6   z                                    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+STEP 3: Decision Rule
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   ŷ = 1   if P(y=1|x) ≥ 0.5   (Attack)                                      │
+│   ŷ = 0   if P(y=1|x) < 0.5   (Normal)                                      │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+STEP 4: Loss Function (Binary Cross-Entropy)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                    1   N                                                    │
+│   L(w) = - ───  ×  Σ  [yᵢ × log(p̂ᵢ) + (1-yᵢ) × log(1-p̂ᵢ)]                  │
+│                    N  i=1                                                   │
+│                                                                             │
+│   where:                                                                    │
+│       N = number of samples                                                 │
+│       yᵢ = true label (0 or 1)                                              │
+│       p̂ᵢ = predicted probability                                            │
+│                                                                             │
+│   Goal: Minimize L(w) using gradient descent                                │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+STEP 5: Gradient Descent Update
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   w_new = w_old - α × ∂L/∂w                                                 │
+│                                                                             │
+│              1   N                                                          │
+│   ∂L/∂w = ───  × Σ  (p̂ᵢ - yᵢ) × xᵢ                                         │
+│              N  i=1                                                         │
+│                                                                             │
+│   where:                                                                    │
+│       α = learning rate                                                     │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+RESULTS FOR YOUR DATA:
+----------------------
+    Accuracy:  77%
+    Recall:    15%
+    
+    Confusion Matrix:
+    [[679  47]
+     [169  29]]
+
+WHY LOGISTIC REGRESSION PERFORMS POORLY:
+----------------------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ LIMITATION: Linear Decision Boundary                                       │
+│                                                                             │
+│ Your power system data has:                                                 │
+│   • Highly NONLINEAR patterns                                               │
+│   • Complex interactions between voltages, currents, frequency              │
+│   • Multiple overlapping distributions                                      │
+│                                                                             │
+│ Logistic Regression assumes:                                                │
+│   • Linear separability                                                     │
+│   • Simple relationship: y = sigmoid(w^T × x)                               │
+│                                                                             │
+│ Result:                                                                     │
+│   • Misses most attacks (Recall = 15%)                                      │
+│   • DANGEROUS for power system protection!                                  │
+│                                                                             │
+│ This is an IMPORTANT NEGATIVE RESULT to report in papers.                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+                9. SUPPORT VECTOR MACHINE (WITH FORMULAS)
+================================================================================
+
+CODE:
+-----
+    from sklearn.svm import SVC
+    svm_clf = SVC(probability=True, max_iter=100, tol=20, random_state=42)
+    svm_clf.fit(X_train, y_train)
+
+MATHEMATICAL MODEL:
+-------------------
+
+OBJECTIVE: Find Optimal Hyperplane
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   Hyperplane equation:  w · x + b = 0                                       │
+│                                                                             │
+│   Decision function:    f(x) = sign(w · x + b)                              │
+│                                                                             │
+│   Classification rule:                                                      │
+│       If w · x + b ≥ 0  →  Class +1 (Attack)                                │
+│       If w · x + b < 0  →  Class -1 (Normal)                                │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+MARGIN MAXIMIZATION:
+--------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   Margin = 2 / ||w||                                                        │
+│                                                                             │
+│   Goal: MAXIMIZE margin = MINIMIZE ||w||²                                   │
+│                                                                             │
+│   Optimization Problem (Primal Form):                                       │
+│                                                                             │
+│       Minimize:    ½ × ||w||²                                               │
+│                                                                             │
+│       Subject to:  yᵢ × (w · xᵢ + b) ≥ 1   for all i                        │
+│                                                                             │
+│   Visual Representation:                                                    │
+│                                                                             │
+│       Attack (●)                                                            │
+│           ●  ●                                                              │
+│              ●  ●                                                           │
+│       ═══════════════════  ← Support Vectors (w · x + b = +1)              │
+│         ↑                                                                   │
+│         │ Margin                                                            │
+│         ↓                                                                   │
+│       ─────────────────────  ← Decision Boundary (w · x + b = 0)           │
+│         ↑                                                                   │
+│         │ Margin                                                            │
+│         ↓                                                                   │
+│       ═══════════════════  ← Support Vectors (w · x + b = -1)              │
+│                   ○  ○                                                      │
+│              ○  ○                                                           │
+│       Normal (○)                                                            │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+SOFT MARGIN SVM (WITH SLACK VARIABLES):
+---------------------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   Real data is rarely perfectly separable.                                  │
+│                                                                             │
+│   Introduce slack variables ξᵢ:                                             │
+│                                                                             │
+│       Minimize:    ½||w||² + C × Σξᵢ                                        │
+│                                                                             │
+│       Subject to:  yᵢ(w · xᵢ + b) ≥ 1 - ξᵢ                                  │
+│                    ξᵢ ≥ 0                                                   │
+│                                                                             │
+│   C = Regularization parameter:                                             │
+│       • Large C → Fewer misclassifications, narrower margin                 │
+│       • Small C → More misclassifications allowed, wider margin             │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+KERNEL TRICK (FOR NONLINEAR DATA):
+----------------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   Transform data to higher dimension using kernel function K(xᵢ, xⱼ)        │
+│                                                                             │
+│   Common Kernels:                                                           │
+│                                                                             │
+│   1. Linear:      K(xᵢ, xⱼ) = xᵢ · xⱼ                                       │
+│                                                                             │
+│   2. Polynomial:  K(xᵢ, xⱼ) = (γ × xᵢ · xⱼ + r)^d                           │
+│                                                                             │
+│   3. RBF (Gaussian): K(xᵢ, xⱼ) = exp(-γ × ||xᵢ - xⱼ||²)                     │
+│                                                                             │
+│   4. Sigmoid:     K(xᵢ, xⱼ) = tanh(γ × xᵢ · xⱼ + r)                         │
+│                                                                             │
+│   RBF Kernel (Default):                                                     │
+│       • Maps to infinite-dimensional space                                  │
+│       • γ controls influence radius of each sample                          │
+│       • Works well for most nonlinear problems                              │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+WHY SVM WORKS FOR POWER SYSTEM DATA:
+------------------------------------
+    • Handles high-dimensional data (many sensors)
+    • RBF kernel captures nonlinear attack patterns
+    • Effective even with limited samples
+    • Robust to outliers (only support vectors matter)
+
+
+================================================================================
+                10. DECISION TREE CLASSIFIER (WITH FORMULAS)
+================================================================================
+
+CODE:
+-----
+    from sklearn.tree import DecisionTreeClassifier
+    dec = DecisionTreeClassifier(criterion="entropy", max_depth=3)
+    dec.fit(X_train, y_train)
+
+MATHEMATICAL MODEL:
+-------------------
+
+ENTROPY (Information Measure):
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   Entropy = - Σ pᵢ × log₂(pᵢ)                                               │
+│                                                                             │
+│   For binary classification:                                                │
+│                                                                             │
+│   H(S) = -p_attack × log₂(p_attack) - p_normal × log₂(p_normal)             │
+│                                                                             │
+│   where:                                                                    │
+│       p_attack = (# attack samples) / (total samples)                       │
+│       p_normal = (# normal samples) / (total samples)                       │
+│                                                                             │
+│   Properties:                                                               │
+│       • H = 0    → Pure node (all same class)                               │
+│       • H = 1    → Maximum impurity (50-50 split)                           │
+│                                                                             │
+│   Example:                                                                  │
+│       50% Attack, 50% Normal:                                               │
+│       H = -0.5 × log₂(0.5) - 0.5 × log₂(0.5)                                │
+│       H = -0.5 × (-1) - 0.5 × (-1)                                          │
+│       H = 0.5 + 0.5 = 1.0 (maximum entropy)                                 │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+INFORMATION GAIN:
+-----------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   Information Gain = H(parent) - Σ (|Sᵥ|/|S|) × H(Sᵥ)                       │
+│                                                                             │
+│   Expanded form:                                                            │
+│                                                                             │
+│   IG(S, A) = H(S) - Σ  (|Sᵥ|/|S|) × H(Sᵥ)                                   │
+│                     v∈Values(A)                                             │
+│                                                                             │
+│   where:                                                                    │
+│       S  = current node samples                                             │
+│       A  = attribute (feature) being tested                                 │
+│       Sᵥ = subset of S where attribute A has value v                        │
+│                                                                             │
+│   Goal: Choose split that MAXIMIZES Information Gain                        │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+GINI IMPURITY (Alternative to Entropy):
+---------------------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   Gini(S) = 1 - Σ pᵢ²                                                       │
+│                                                                             │
+│   For binary classification:                                                │
+│                                                                             │
+│   Gini = 1 - p_attack² - p_normal²                                          │
+│                                                                             │
+│   Properties:                                                               │
+│       • Gini = 0    → Pure node                                             │
+│       • Gini = 0.5  → Maximum impurity (50-50)                              │
+│                                                                             │
+│   Gini is slightly faster to compute than entropy.                          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+TREE BUILDING ALGORITHM (ID3/CART):
+-----------------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   1. Start with all samples at root node                                    │
+│                                                                             │
+│   2. For each feature:                                                      │
+│      a. For each possible threshold:                                        │
+│         - Split data into left and right                                    │
+│         - Calculate Information Gain (or Gini reduction)                    │
+│                                                                             │
+│   3. Choose feature + threshold with HIGHEST Information Gain               │
+│                                                                             │
+│   4. Recursively repeat for child nodes                                     │
+│                                                                             │
+│   5. Stop when:                                                             │
+│      - max_depth reached                                                    │
+│      - min_samples_leaf not met                                             │
+│      - Pure node achieved (Entropy = 0)                                     │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+EXAMPLE TREE NODE:
+------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                   ┌───────────────────────┐                                 │
+│                   │  Voltage ≤ 0.92?      │                                 │
+│                   │  entropy = 0.85       │                                 │
+│                   │  samples = 4618       │                                 │
+│                   │  value = [1008, 3610] │                                 │
+│                   │  class = Attack       │                                 │
+│                   └───────────┬───────────┘                                 │
+│                      YES │         │ NO                                     │
+│                          ▼         ▼                                        │
+│                   ┌───────────┐ ┌───────────┐                               │
+│                   │  Attack   │ │ Check     │                               │
+│                   │  (leaf)   │ │ Frequency │                               │
+│                   └───────────┘ └───────────┘                               │
+│                                                                             │
+│   Interpretation:                                                           │
+│       If voltage ≤ 0.92 → Predict ATTACK                                    │
+│       Else → Check next feature                                             │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+PARAMETERS USED:
+----------------
+    criterion="entropy"  → Use Information Gain for splits
+    max_depth=3          → Limit tree to 3 levels (prevent overfitting)
+
+WHY USE DECISION TREE:
+----------------------
+    • Highly INTERPRETABLE
+    • Shows WHICH features matter (voltage, frequency, current)
+    • Useful for protection engineering insights
+    • Can explain decisions to operators
+
+
+================================================================================
+                11. RANDOM FOREST CLASSIFIER (WITH FORMULAS)
+================================================================================
+
+CODE:
+-----
+    from sklearn.ensemble import RandomForestClassifier
+    rf = RandomForestClassifier(n_estimators=100, random_state=42)
+    rf.fit(X_train, y_train)
+    y_pred = rf.predict(X_test)
+
+MATHEMATICAL MODEL:
+-------------------
+
+CONCEPT: Ensemble of Decision Trees + Bagging
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   Random Forest = Bootstrap Aggregating (Bagging) + Feature Randomization   │
+│                                                                             │
+│   Step 1: Bootstrap Sampling                                                │
+│       • Create T different training sets by sampling WITH replacement       │
+│       • Each bootstrap sample ≈ 63.2% unique samples                        │
+│                                                                             │
+│   Step 2: Train Individual Trees                                            │
+│       • Each tree trained on different bootstrap sample                     │
+│       • At each split, only √m features considered (m = total features)     │
+│                                                                             │
+│   Step 3: Aggregate Predictions                                             │
+│       • Each tree votes                                                     │
+│       • Final prediction = MAJORITY VOTE                                    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+ENSEMBLE PREDICTION:
+--------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   For classification (majority voting):                                     │
+│                                                                             │
+│                    T                                                        │
+│   ŷ = mode { hₜ(x) }                                                        │
+│                   t=1                                                       │
+│                                                                             │
+│   where:                                                                    │
+│       T = number of trees (n_estimators)                                    │
+│       hₜ(x) = prediction of tree t                                          │
+│                                                                             │
+│   For probability:                                                          │
+│                                                                             │
+│                1   T                                                        │
+│   P(y=1|x) = ───  Σ  pₜ(y=1|x)                                              │
+│                T  t=1                                                       │
+│                                                                             │
+│   (Average of all tree probabilities)                                       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+VARIANCE REDUCTION:
+-------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   Single tree variance: Var(h)                                              │
+│                                                                             │
+│   Ensemble variance:                                                        │
+│                                                                             │
+│            Var(h)                                                           │
+│   Var = ────────── + ρ × (1 - 1/T) × Var(h)                                 │
+│              T                                                              │
+│                                                                             │
+│   where:                                                                    │
+│       T = number of trees                                                   │
+│       ρ = correlation between trees                                         │
+│                                                                             │
+│   Key insight:                                                              │
+│       • Random feature selection → Lower tree correlation (ρ)               │
+│       • Lower ρ → Lower variance → Better generalization                    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+RESULTS FOR YOUR DATA:
+----------------------
+    Train Accuracy: 100% (slight overfitting)
+    Test Accuracy:  97%
+
+    Precision: 0.96
+    Recall:    0.90
+    F1 Score:  0.93
+
+    Confusion Matrix:
+    [[718   8]
+     [ 19 179]]
+
+METRIC CALCULATIONS:
+--------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   From Confusion Matrix:                                                    │
+│       TN = 718    FP = 8                                                    │
+│       FN = 19     TP = 179                                                  │
+│                                                                             │
+│                  TP + TN           718 + 179                                │
+│   Accuracy = ───────────────── = ─────────── = 0.97 (97%)                   │
+│              TP + TN + FP + FN       924                                    │
+│                                                                             │
+│                    TP             179                                       │
+│   Precision = ─────────── = ──────────── = 0.96 (96%)                       │
+│                TP + FP        179 + 8                                       │
+│                                                                             │
+│                  TP             179                                         │
+│   Recall = ─────────── = ──────────── = 0.90 (90%)                          │
+│              TP + FN       179 + 19                                         │
+│                                                                             │
+│              2 × Precision × Recall      2 × 0.96 × 0.90                    │
+│   F1 = ───────────────────────────── = ────────────────── = 0.93            │
+│            Precision + Recall            0.96 + 0.90                        │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+                12. EXTRA TREES CLASSIFIER (WITH FORMULAS)
+================================================================================
+
+CODE:
+-----
+    from sklearn.ensemble import ExtraTreesClassifier
+    etc = ExtraTreesClassifier(n_estimators=100, random_state=42)
+    etc.fit(X_train, y_train)
+
+DIFFERENCE FROM RANDOM FOREST:
+------------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   RANDOM FOREST:                                                            │
+│       • Uses bootstrap sampling                                             │
+│       • Chooses BEST split among random features                            │
+│                                                                             │
+│   EXTRA TREES (Extremely Randomized Trees):                                 │
+│       • Uses ENTIRE training set (no bootstrap)                             │
+│       • Chooses RANDOM split thresholds                                     │
+│       • Even MORE randomization                                             │
+│                                                                             │
+│   Mathematical difference:                                                  │
+│                                                                             │
+│   Random Forest split:                                                      │
+│       threshold* = argmax  IG(S, feature, threshold)                        │
+│                  threshold                                                  │
+│                                                                             │
+│   Extra Trees split:                                                        │
+│       threshold* = random from [min(feature), max(feature)]                 │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+ADVANTAGES:
+-----------
+    • Faster training (no need to find optimal threshold)
+    • Lower variance than Random Forest
+    • Better on high-dimensional noisy data
+
+RESULTS FOR YOUR DATA:
+----------------------
+    Accuracy:  98%
+    Precision: 96%
+    Recall:    94%
+    F1 Score:  95%
+
+    Confusion Matrix:
+    [[719   7]
+     [ 12 186]]
+
+WHY EXTRA TREES PERFORMS BEST:
+------------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   Power system data characteristics:                                        │
+│       • High dimensional (many sensors)                                     │
+│       • Nonlinear attack patterns                                           │
+│       • Noisy measurements                                                  │
+│                                                                             │
+│   Extra Trees advantages:                                                   │
+│       • Higher randomness → Lower variance                                  │
+│       • Handles noise well                                                  │
+│       • Captures complex interactions                                       │
+│                                                                             │
+│   Result: BEST model for cyber-attack detection!                            │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+                13. XGBOOST CLASSIFIER (WITH FORMULAS)
+================================================================================
+
+CODE:
+-----
+    from xgboost import XGBClassifier
+    xgb = XGBClassifier()
+    xgb.fit(X_train, y_train)
+
+MATHEMATICAL MODEL:
+-------------------
+
+CONCEPT: Gradient Boosting with Regularization
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   Boosting = Sequential ensemble where each tree CORRECTS previous errors   │
+│                                                                             │
+│   Model at iteration t:                                                     │
+│                                                                             │
+│   ŷᵢ^(t) = ŷᵢ^(t-1) + η × fₜ(xᵢ)                                            │
+│                                                                             │
+│   where:                                                                    │
+│       ŷᵢ^(t-1) = prediction from previous iteration                         │
+│       fₜ(xᵢ)   = new tree that fits the RESIDUAL                            │
+│       η        = learning rate (shrinkage)                                  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+OBJECTIVE FUNCTION:
+-------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   Obj = Σ L(yᵢ, ŷᵢ) + Σ Ω(fₖ)                                               │
+│          i            k                                                     │
+│                                                                             │
+│   where:                                                                    │
+│       L = Loss function (e.g., Log Loss for classification)                 │
+│       Ω = Regularization term                                               │
+│                                                                             │
+│   Regularization:                                                           │
+│                                                                             │
+│   Ω(f) = γT + ½λΣwⱼ²                                                        │
+│                                                                             │
+│   where:                                                                    │
+│       T  = number of leaves in tree                                         │
+│       wⱼ = weight of leaf j                                                 │
+│       γ  = leaf number penalty                                              │
+│       λ  = L2 regularization on weights                                     │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+GRADIENT AND HESSIAN:
+---------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   XGBoost uses second-order Taylor expansion:                               │
+│                                                                             │
+│   gᵢ = ∂L/∂ŷᵢ^(t-1)         (First derivative - gradient)                   │
+│   hᵢ = ∂²L/∂(ŷᵢ^(t-1))²    (Second derivative - hessian)                   │
+│                                                                             │
+│   Approximate objective:                                                    │
+│                                                                             │
+│   Obj ≈ Σ [gᵢfₜ(xᵢ) + ½hᵢfₜ(xᵢ)²] + Ω(fₜ)                                   │
+│          i                                                                  │
+│                                                                             │
+│   Optimal leaf weight:                                                      │
+│                                                                             │
+│            Σ gᵢ                                                             │
+│   wⱼ* = - ─────────                                                         │
+│           Σ hᵢ + λ                                                          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+SPLIT GAIN FORMULA:
+-------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│             1    (ΣgL)²       (ΣgR)²       (ΣgL + ΣgR)²                     │
+│   Gain = ───  [ ───────── + ───────── - ───────────────── ] - γ             │
+│             2    ΣhL + λ     ΣhR + λ     ΣhL + ΣhR + λ                      │
+│                                                                             │
+│   where:                                                                    │
+│       L, R = left and right child nodes                                     │
+│       gL, gR = sum of gradients in each child                               │
+│       hL, hR = sum of hessians in each child                                │
+│                                                                             │
+│   If Gain > 0 → Split is beneficial                                         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+RESULTS FOR YOUR DATA:
+----------------------
+    Train Accuracy: 100%
+    Test Accuracy:  97%
+
+    Precision: 0.95
+    Recall:    0.89
+    F1 Score:  0.92
+
+    Confusion Matrix:
+    [[717   9]
+     [ 22 176]]
+
+WHY XGBOOST WORKS WELL:
+-----------------------
+    • Learns HARD-TO-CLASSIFY samples progressively
+    • Regularization prevents overfitting
+    • Handles nonlinear patterns
+    • Very popular in Kaggle competitions for tabular data
+
+
+================================================================================
+                14. BAGGING CLASSIFIER (WITH FORMULAS)
+================================================================================
+
+CODE:
+-----
+    from sklearn.ensemble import BaggingClassifier
+    bc = BaggingClassifier()
+    bc.fit(X_train, y_train)
+
+MATHEMATICAL MODEL:
+-------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   Bagging = Bootstrap AGGregatING                                           │
+│                                                                             │
+│   Algorithm:                                                                │
+│       1. Create T bootstrap samples (sampling with replacement)             │
+│       2. Train base estimator on each bootstrap sample                      │
+│       3. Aggregate predictions by majority voting                           │
+│                                                                             │
+│   Bootstrap Sample:                                                         │
+│       • Draw n samples WITH replacement from original n samples             │
+│       • Each sample has ~63.2% unique, ~36.8% duplicates                    │
+│                                                                             │
+│   Final prediction:                                                         │
+│                                                                             │
+│                    T                                                        │
+│   ŷ = mode { hₜ(x) }                                                        │
+│                   t=1                                                       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+BIAS-VARIANCE TRADEOFF:
+-----------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   Total Error = Bias² + Variance + Irreducible Noise                        │
+│                                                                             │
+│   Bagging effect:                                                           │
+│       • Bias: Unchanged (same base estimator)                               │
+│       • Variance: REDUCED (ensemble averaging)                              │
+│                                                                             │
+│   For T independent estimators:                                             │
+│                                                                             │
+│              Var(h)                                                         │
+│   Var_ens = ────────                                                        │
+│                T                                                            │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+RESULTS FOR YOUR DATA:
+----------------------
+    Train Accuracy: 100%
+    Test Accuracy:  95%
+
+    Precision: 0.92
+    Recall:    0.85
+    F1 Score:  0.89
+
+    Confusion Matrix:
+    [[712  14]
+     [ 29 169]]
+
+INTERPRETATION:
+---------------
+    • Lower recall (85%) → Misses more attacks (29 FN)
+    • Slightly worse than Random Forest and XGBoost
+    • Default settings use only 10 estimators (can be improved)
+
+
+================================================================================
+                15. VOTING CLASSIFIER (ENSEMBLE)
+================================================================================
+
+CODE:
+-----
+    from sklearn.ensemble import VotingClassifier
+    estimators = [rnd_clf, extra_trees_clf, svm_clf, mlp_clf]
+    voting_clf = VotingClassifier(estimators=estimators, voting='hard')
+
+MATHEMATICAL MODEL:
+-------------------
+
+HARD VOTING (Majority Voting):
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                    K                                                        │
+│   ŷ = mode { hₖ(x) }                                                        │
+│                   k=1                                                       │
+│                                                                             │
+│   Each classifier votes, majority wins.                                     │
+│                                                                             │
+│   Example with 4 classifiers:                                               │
+│       RF: Attack (1)                                                        │
+│       ETC: Attack (1)                                                       │
+│       SVM: Normal (0)                                                       │
+│       MLP: Attack (1)                                                       │
+│                                                                             │
+│       Final: Attack (3 votes to 1)                                          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+SOFT VOTING (Probability Averaging):
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                1   K                                                        │
+│   P(y=c|x) = ───  Σ  pₖ(y=c|x)                                              │
+│                K  k=1                                                       │
+│                                                                             │
+│   ŷ = argmax P(y=c|x)                                                       │
+│          c                                                                  │
+│                                                                             │
+│   Average probabilities, then pick highest.                                 │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+WHY VOTING WORKS:
+-----------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   Condorcet Jury Theorem (simplified):                                      │
+│                                                                             │
+│   If each classifier is better than random (accuracy > 50%)                 │
+│   AND classifiers make INDEPENDENT errors                                   │
+│   THEN ensemble accuracy approaches 100% as K increases                     │
+│                                                                             │
+│   Mathematical bound:                                                       │
+│                                                                             │
+│   P(majority correct) = Σ C(K,k) × pᵏ × (1-p)^(K-k)                         │
+│                        k>K/2                                                │
+│                                                                             │
+│   For K=5 classifiers with p=0.7:                                           │
+│   P(majority) ≈ 0.84 > 0.70                                                 │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+RESULTS FOR YOUR DATA:
+----------------------
+    Accuracy ≈ 97.7%
+    
+    Combines:
+        • Random Forest (tree ensemble)
+        • Extra Trees (randomized trees)
+        • SVM (margin-based)
+        • MLP (neural network)
+
+    Different models capture different patterns.
+    Errors tend to cancel out.
+    Stronger reliability for critical power systems.
+
+
+================================================================================
+                16. EVALUATION METRICS (ALL FORMULAS)
+================================================================================
+
+CONFUSION MATRIX STRUCTURE:
+---------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                           PREDICTED                                         │
+│                     Negative        Positive                                │
+│                  ┌──────────────┬──────────────┐                            │
+│       Negative   │      TN      │      FP      │                            │
+│       ACTUAL     ├──────────────┼──────────────┤                            │
+│       Positive   │      FN      │      TP      │                            │
+│                  └──────────────┴──────────────┘                            │
+│                                                                             │
+│   TN (True Negative)  = Correctly predicted Normal                          │
+│   TP (True Positive)  = Correctly predicted Attack                          │
+│   FP (False Positive) = Type I Error (False alarm)                          │
+│   FN (False Negative) = Type II Error (Missed attack) ← DANGEROUS!          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+ALL METRIC FORMULAS:
+--------------------
+
+1. ACCURACY:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                      TP + TN                                                │
+│   Accuracy = ─────────────────────────                                      │
+│               TP + TN + FP + FN                                             │
+│                                                                             │
+│   Interpretation: Overall correctness                                       │
+│   Range: 0 to 1                                                             │
+│                                                                             │
+│   ⚠ WARNING: Misleading with imbalanced data!                               │
+│        Example: 95% Normal → Always predict Normal = 95% accuracy           │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+2. PRECISION:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                        TP                                                   │
+│   Precision = ─────────────────                                             │
+│                  TP + FP                                                    │
+│                                                                             │
+│   Question: "Of all ATTACK predictions, how many were correct?"             │
+│                                                                             │
+│   High Precision = Few false alarms                                         │
+│   Use when: False alarms are costly (unnecessary shutdowns)                 │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+3. RECALL (SENSITIVITY / TRUE POSITIVE RATE):
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                     TP                                                      │
+│   Recall = ─────────────────                                                │
+│               TP + FN                                                       │
+│                                                                             │
+│   Question: "Of all ACTUAL attacks, how many were detected?"                │
+│                                                                             │
+│   High Recall = Few missed attacks                                          │
+│   Use when: Missing attacks is dangerous (power system protection!)         │
+│                                                                             │
+│   ⚠ CRITICAL for your project: Prioritize RECALL!                          │
+│   Missing a cyber-attack can cause grid instability!                        │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+4. SPECIFICITY (TRUE NEGATIVE RATE):
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                        TN                                                   │
+│   Specificity = ─────────────────                                           │
+│                    TN + FP                                                  │
+│                                                                             │
+│   Question: "Of all NORMAL conditions, how many correctly identified?"      │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+5. F1 SCORE (HARMONIC MEAN):
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                2 × Precision × Recall                                       │
+│   F1 Score = ───────────────────────────                                    │
+│                Precision + Recall                                           │
+│                                                                             │
+│   Alternative formula:                                                      │
+│                                                                             │
+│                       2 × TP                                                │
+│   F1 Score = ─────────────────────────                                      │
+│               2×TP + FP + FN                                                │
+│                                                                             │
+│   Why Harmonic Mean (not arithmetic)?                                       │
+│       • Penalizes extreme differences                                       │
+│       • F1 = 0.5 if Precision=1.0 and Recall=0.33                           │
+│       • Better single metric for imbalanced data                            │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+6. F-BETA SCORE (WEIGHTED):
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                (1 + β²) × Precision × Recall                                │
+│   F_β = ─────────────────────────────────────                               │
+│              β² × Precision + Recall                                        │
+│                                                                             │
+│   β > 1: Emphasizes Recall (safety-critical, use β=2)                       │
+│   β < 1: Emphasizes Precision (cost-sensitive, use β=0.5)                   │
+│   β = 1: Balanced (standard F1)                                             │
+│                                                                             │
+│   For power system IDS: Use F2 (recall matters more!)                       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+                17. CONFUSION MATRIX INTERPRETATION
+================================================================================
+
+EXAMPLE FROM YOUR RESULTS (Random Forest):
+------------------------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   Confusion Matrix:                                                         │
+│   [[718   8]                                                                │
+│    [ 19 179]]                                                               │
+│                                                                             │
+│   Expanded view:                                                            │
+│                                                                             │
+│                           Predicted                                         │
+│                      Normal      Attack                                     │
+│                   ┌───────────┬───────────┐                                 │
+│   Actual Normal   │    718    │     8     │                                 │
+│                   │   (TN)    │   (FP)    │                                 │
+│                   ├───────────┼───────────┤                                 │
+│   Actual Attack   │    19     │    179    │                                 │
+│                   │   (FN)    │   (TP)    │                                 │
+│                   └───────────┴───────────┘                                 │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+METRIC CALCULATIONS:
+--------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   Total samples = 718 + 8 + 19 + 179 = 924                                  │
+│                                                                             │
+│                  718 + 179       897                                        │
+│   Accuracy = ───────────── = ─────── = 0.97 (97%)                           │
+│                   924           924                                         │
+│                                                                             │
+│                    179          179                                         │
+│   Precision = ─────────── = ─────── = 0.96 (96%)                            │
+│                179 + 8         187                                          │
+│                                                                             │
+│                  179          179                                           │
+│   Recall = ─────────── = ─────── = 0.90 (90%)                               │
+│              179 + 19        198                                            │
+│                                                                             │
+│            2 × 0.96 × 0.90      1.728                                       │
+│   F1 = ────────────────────── = ────── = 0.93                               │
+│           0.96 + 0.90           1.86                                        │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+INTERPRETATION FOR POWER SYSTEM:
+--------------------------------
+    ✓ 718 normal conditions correctly identified (TN)
+    ✓ 179 attacks correctly detected (TP)
+    ⚠ 8 false alarms (FP) - unnecessary alerts
+    ⚠ 19 missed attacks (FN) - POTENTIAL DANGER!
+
+    For critical infrastructure:
+        • FN (missed attacks) are MORE dangerous than FP
+        • Consider increasing recall even at cost of precision
+
+
+================================================================================
+                18. ROC-AUC CURVE ANALYSIS
+================================================================================
+
+CODE:
+-----
+    from sklearn.metrics import roc_curve, auc
+    y_pred_proba = clf.predict_proba(X_test)[:,1]
+    fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
+    roc_auc = auc(fpr, tpr)
+
+MATHEMATICAL DEFINITIONS:
+-------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   False Positive Rate (FPR):                                                │
+│                                                                             │
+│              FP                                                             │
+│   FPR = ─────────── = 1 - Specificity                                       │
+│           FP + TN                                                           │
+│                                                                             │
+│   True Positive Rate (TPR):                                                 │
+│                                                                             │
+│              TP                                                             │
+│   TPR = ─────────── = Recall = Sensitivity                                  │
+│           TP + FN                                                           │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+ROC CURVE VISUALIZATION:
+------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   TPR ↑                                                                     │
+│   1.0 │                              ●●●● Perfect classifier                │
+│       │                          ●●●●                                       │
+│       │                      ●●●●                                           │
+│   0.8 │                  ●●●●   ← Good model                                │
+│       │              ●●●●                                                   │
+│       │          ●●●●                                                       │
+│   0.6 │      ●●●●                                                           │
+│       │  ●●●●                                                               │
+│       │●●●●                                                                 │
+│   0.4 │●●                                                                   │
+│       │●         Random classifier                                          │
+│       │●    ●●●●●●●●●●●●●●●●●●●●  (diagonal line, AUC=0.5)                  │
+│   0.2 │●●●●●                                                                │
+│       │                                                                     │
+│   0.0 └─────────────────────────────────────────────→ FPR                   │
+│       0.0   0.2   0.4   0.6   0.8   1.0                                     │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+AUC (Area Under the Curve):
+---------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│            1                                                                │
+│   AUC = ∫  TPR d(FPR)                                                       │
+│            0                                                                │
+│                                                                             │
+│   Interpretation:                                                           │
+│       AUC = 1.0:   Perfect classifier                                       │
+│       AUC > 0.90:  Excellent                                                │
+│       AUC > 0.80:  Good                                                     │
+│       AUC > 0.70:  Acceptable                                               │
+│       AUC = 0.50:  Random guessing (no discrimination)                      │
+│       AUC < 0.50:  Worse than random (model inverted)                       │
+│                                                                             │
+│   Probabilistic Interpretation:                                             │
+│       AUC = P(model ranks random attack higher than random normal)          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+RESULTS FROM YOUR DATA:
+-----------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│   Model                  │  AUC Score                                       │
+│   ───────────────────────┼──────────────────────────                        │
+│   Extra Trees (ETC)      │  0.98-0.99  ← BEST                               │
+│   XGBoost (XGBC)         │  0.97-0.98                                       │
+│   Random Forest (RF)     │  0.96-0.97                                       │
+│   Gradient Boosting (GBC)│  0.95-0.96                                       │
+│   SVM                    │  0.90-0.95                                       │
+│   Decision Tree (DTC)    │  0.85-0.90                                       │
+│   Logistic Regression    │  0.70-0.75  ← POOR                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+WHY ROC-AUC MATTERS MORE THAN ACCURACY:
+---------------------------------------
+    • Your dataset is IMBALANCED (78% attack, 22% normal)
+    • Accuracy can be misleading
+    • AUC measures discrimination ability across ALL thresholds
+    • Better metric for attack detection evaluation
+
+
+================================================================================
+                19. CROSS-VALIDATION (WITH FORMULAS)
+================================================================================
+
+CODE:
+-----
+    from sklearn.model_selection import StratifiedKFold, cross_val_score
+    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    scores = cross_val_score(model, X, y, cv=skf, scoring='accuracy')
+
+STRATIFIED K-FOLD EXPLANATION:
+------------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   K-Fold Cross-Validation:                                                  │
+│       • Split data into K equal parts (folds)                               │
+│       • Train on K-1 folds, test on 1 fold                                  │
+│       • Repeat K times, each fold used as test once                         │
+│                                                                             │
+│   For K=5:                                                                  │
+│                                                                             │
+│   Fold 1: [ TEST | Train | Train | Train | Train ]                          │
+│   Fold 2: [ Train | TEST | Train | Train | Train ]                          │
+│   Fold 3: [ Train | Train | TEST | Train | Train ]                          │
+│   Fold 4: [ Train | Train | Train | TEST | Train ]                          │
+│   Fold 5: [ Train | Train | Train | Train | TEST ]                          │
+│                                                                             │
+│   STRATIFIED means:                                                         │
+│       Each fold maintains same class ratio as original data                 │
+│       Essential for imbalanced datasets!                                    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+AGGREGATION FORMULAS:
+---------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   Mean CV Score:                                                            │
+│                                                                             │
+│                   1   K                                                     │
+│   Mean Score = ───  × Σ  Score_k                                            │
+│                   K  k=1                                                    │
+│                                                                             │
+│   Standard Deviation:                                                       │
+│                     ______________________________                          │
+│                    /  1   K                                                 │
+│   Std Score = √  ───  × Σ  (Score_k - Mean)²                                │
+│                    K  k=1                                                   │
+│                                                                             │
+│   Example output:                                                           │
+│       CV Scores: [0.95, 0.97, 0.96, 0.94, 0.97]                             │
+│       Mean: 0.958                                                           │
+│       Std: 0.012                                                            │
+│                                                                             │
+│   Result: 95.8% ± 1.2% accuracy                                             │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+LOG LOSS (FOR PROBABILITY EVALUATION):
+--------------------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                    1   N                                                    │
+│   Log Loss = - ───  × Σ  [yᵢ × log(p̂ᵢ) + (1-yᵢ) × log(1-p̂ᵢ)]                │
+│                    N  i=1                                                   │
+│                                                                             │
+│   Properties:                                                               │
+│       • Heavily penalizes confident wrong predictions                       │
+│       • Log Loss = 0 for perfect predictions                                │
+│       • Lower is better                                                     │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+                20. HYPERPARAMETER TUNING (GRID SEARCH)
+================================================================================
+
+CODE:
+-----
+    from sklearn.model_selection import GridSearchCV
+    param_grid = {
+        'max_depth': [3, 5, 10, 20],
+        'min_samples_leaf': [1, 5, 10],
+        'criterion': ['gini', 'entropy']
+    }
+    grid_search = GridSearchCV(DecisionTreeClassifier(), param_grid, cv=5)
+    grid_search.fit(X_train, y_train)
+
+GRID SEARCH ALGORITHM:
+----------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   1. Define parameter grid (all combinations)                               │
+│                                                                             │
+│   2. For each parameter combination:                                        │
+│      a. Perform K-fold cross-validation                                     │
+│      b. Calculate mean validation score                                     │
+│                                                                             │
+│   3. Select best combination (highest mean score)                           │
+│                                                                             │
+│   Total models trained = |Grid| × K                                         │
+│                                                                             │
+│   Example:                                                                  │
+│       max_depth: [3, 5, 10, 20]     → 4 options                             │
+│       min_samples_leaf: [1, 5, 10]  → 3 options                             │
+│       criterion: ['gini', 'entropy'] → 2 options                            │
+│       K-folds: 5                                                            │
+│                                                                             │
+│       Total = 4 × 3 × 2 × 5 = 120 model fits                                │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+RESULTS FROM YOUR DATA:
+-----------------------
+    Best Parameters Found:
+        criterion = 'entropy'
+        max_depth = 20
+        min_samples_leaf = 10
+
+    Best Accuracy ≈ 89.7%
+
+OBSERVATION:
+------------
+    • Proper tuning improves simple models
+    • Decision Tree with tuning: 89.7%
+    • Still not as good as ensemble methods (97%+)
+    • Ensembles are more robust to hyperparameter choices
+
+
+================================================================================
+                21. MODEL COMPARISON & FINAL RESULTS
+================================================================================
+
+COMPLETE RESULTS TABLE:
+-----------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   MODEL                  │ ACCURACY │ PRECISION │ RECALL │ F1    │ AUC     │
+│   ───────────────────────┼──────────┼───────────┼────────┼───────┼─────────│
+│   Extra Trees            │  98%     │   96%     │  94%   │ 95%   │ ~0.99   │
+│   XGBoost                │  97%     │   95%     │  89%   │ 92%   │ ~0.98   │
+│   Random Forest          │  97%     │   96%     │  90%   │ 93%   │ ~0.97   │
+│   Voting Classifier      │  97.7%   │   -       │  -     │ -     │ ~0.98   │
+│   Gradient Boosting      │  96%     │   94%     │  88%   │ 91%   │ ~0.96   │
+│   Bagging                │  95%     │   92%     │  85%   │ 89%   │ ~0.95   │
+│   Decision Tree (tuned)  │  89.7%   │   -       │  -     │ -     │ ~0.87   │
+│   Logistic Regression    │  77%     │   -       │  15%   │ -     │ ~0.72   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+KEY OBSERVATIONS:
+-----------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│ 1. ENSEMBLE METHODS DOMINATE                                                │
+│    • Extra Trees, Random Forest, XGBoost all > 95% accuracy                 │
+│    • They handle nonlinear power system data well                           │
+│                                                                             │
+│ 2. EXTRA TREES IS BEST                                                      │
+│    • Highest recall (94%) - detects most attacks                            │
+│    • Lowest false negatives (12 missed attacks)                             │
+│    • Best for safety-critical power system                                  │
+│                                                                             │
+│ 3. LOGISTIC REGRESSION FAILS                                                │
+│    • Only 15% recall - misses 85% of attacks!                               │
+│    • Linear model cannot capture nonlinear attack patterns                  │
+│    • Important NEGATIVE result to report                                    │
+│                                                                             │
+│ 4. RECALL IS CRITICAL                                                       │
+│    • For power system security: Missing attacks is DANGEROUS                │
+│    • Models with high recall preferred over high precision                  │
+│                                                                             │
+│ 5. TRAIN ACCURACY = 100%                                                    │
+│    • All tree models achieve perfect training accuracy                      │
+│    • But test accuracy remains high (97%) → Good generalization             │
+│    • Ensemble randomization prevents overfitting                            │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+RECOMMENDED MODEL FOR DEPLOYMENT:
+---------------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   PRIMARY: Extra Trees Classifier                                           │
+│       • Best overall performance                                            │
+│       • Highest recall (critical for attack detection)                      │
+│       • Handles noisy sensor data well                                      │
+│                                                                             │
+│   SECONDARY: Voting Classifier                                              │
+│       • Combines multiple model strengths                                   │
+│       • More robust to individual model failures                            │
+│       • Good for redundancy in critical systems                             │
+│                                                                             │
+│   INTERPRETABILITY: Decision Tree                                           │
+│       • Use for explaining detection rules to operators                     │
+│       • Visualize which features trigger alerts                             │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+            SUMMARY: WHY ENSEMBLE METHODS WORK FOR CYBER-ATTACK DETECTION
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   Power System Data Characteristics:                                        │
+│       ✓ High dimensional (100+ features from multiple relays)               │
+│       ✓ Nonlinear relationships between voltage, current, frequency         │
+│       ✓ Noisy sensor measurements                                           │
+│       ✓ Complex attack patterns that span multiple features                 │
+│       ✓ Class imbalance (more attacks than normal in your data)             │
+│                                                                             │
+│   Ensemble Method Advantages:                                               │
+│       ✓ Reduce variance through averaging multiple models                   │
+│       ✓ Capture different aspects of the data                               │
+│       ✓ Robust to overfitting due to randomization                          │
+│       ✓ Handle nonlinear decision boundaries                                │
+│       ✓ Work well on tabular power system data                              │
+│                                                                             │
+│   Final Recommendation:                                                     │
+│       Deploy Extra Trees or Voting Classifier for production IDS            │
+│       Use Decision Tree for operator interpretability                       │
+│       Monitor recall metric to ensure minimum missed attacks                │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+                         END OF DOCUMENTATION
+================================================================================
+
+Document Version: 1.0
+Last Updated: February 2026
+Project: EV SmartGrid ML - Cyber-Attack Detection using Machine Learning
+================================================================================

@@ -1,0 +1,790 @@
+# TECHNICAL API REFERENCE - EV SmartGrid ML Project
+
+## Complete Module Documentation
+
+---
+
+## MODULE 1: load_data.py
+
+### Function: load_csv_data(csv_path)
+
+**Signature:**
+```python
+def load_csv_data(csv_path: str) -> pd.DataFrame:
+```
+
+**Parameters:**
+- `csv_path` (str): Absolute or relative path to CSV file
+
+**Returns:**
+- `pd.DataFrame`: Loaded dataset, or None on failure
+
+**Raises:**
+- `FileNotFoundError`: If file doesn't exist
+- `Exception`: Generic errors during file parsing
+
+**Example:**
+```python
+from python.load_data import load_csv_data
+df = load_csv_data('data/dataset.csv')
+# Output shape: (5000, 11) for main dataset
+print(f"Loaded {df.shape[0]} samples with {df.shape[1]} features")
+```
+
+**Output:**
+```
+Successfully loaded: data/dataset.csv
+Dataset shape: (5000, 11)
+Columns: ['timestamp', 'hour', 'voltage', 'current', 'active_power', ...]
+```
+
+---
+
+### Function: load_mat_file(mat_path)
+
+**Signature:**
+```python
+def load_mat_file(mat_path: str) -> dict:
+```
+
+**Parameters:**
+- `mat_path` (str): Path to MATLAB .mat file
+
+**Returns:**
+- `dict`: Dictionary with signal arrays
+- `None` on error
+
+**Example:**
+```python
+mat_data = load_mat_file('simulink/power_signals.mat')
+for key in mat_data.keys():
+    if not key.startswith('__'):
+        print(f"{key}: shape {mat_data[key].shape}")
+```
+
+---
+
+### Function: calculate_rms(signal, window_size)
+
+**Signature:**
+```python
+def calculate_rms(signal: np.ndarray, window_size: int) -> np.ndarray:
+```
+
+**Parameters:**
+- `signal` (np.ndarray): 1D array of signal samples
+- `window_size` (int): Number of samples per window (one AC cycle)
+
+**Returns:**
+- `np.ndarray`: RMS values, same length as input
+
+**Formula:**
+$$RMS_i = \sqrt{\frac{1}{N}\sum_{j=start}^{end} signal_j^2}$$
+
+**Example:**
+```python
+# For 60Hz AC sampled at 1kHz
+# One cycle = 1000 samples / 60 Hz ≈ 17 samples
+current_waveform = np.array([...])  # Raw AC current
+rms_values = calculate_rms(current_waveform, window_size=17)
+```
+
+---
+
+## MODULE 2: feature_engineering.py
+
+### Class: FeatureEngineer
+
+**Constructor:**
+```python
+from python.feature_engineering import FeatureEngineer
+
+engineer = FeatureEngineer()
+# Attributes initialized:
+#   self.scaler = None
+#   self.label_encoder = None
+#   self.selected_features = None
+```
+
+---
+
+### Method: create_power_features(df)
+
+**Signature:**
+```python
+def create_power_features(self, df: pd.DataFrame) -> pd.DataFrame:
+```
+
+**Creates Features:**
+- `apparent_power`: √(active_power² + reactive_power²)
+- `power_factor`: active_power / apparent_power
+- `ev_load_ratio`: ev_demand / (total_load + 1e-8)
+
+**Example:**
+```python
+df_feat = engineer.create_power_features(df)
+print(df_feat[['active_power', 'reactive_power', 'apparent_power', 'power_factor']].head())
+```
+
+**Output:**
+```
+  active_power  reactive_power  apparent_power  power_factor
+0       197.4           86.2          215.4          0.916
+1       159.2           60.6          170.2          0.935
+```
+
+---
+
+### Method: create_statistical_features(df, window_cols=None)
+
+**Signature:**
+```python
+def create_statistical_features(self, df: pd.DataFrame, 
+                               window_cols: list = None) -> pd.DataFrame:
+```
+
+**Creates Features:**
+- `{col}_rolling_mean`: 3-sample rolling average
+- `{col}_rolling_std`: 3-sample rolling std dev
+- `{col}_diff`: Rate of change (difference from previous)
+
+**Example:**
+```python
+df_stat = engineer.create_statistical_features(
+    df_feat, 
+    window_cols=['voltage', 'current', 'active_power']
+)
+```
+
+---
+
+### Method: scale_features(X, method='standard', fit=True)
+
+**Signature:**
+```python
+def scale_features(self, X: Union[pd.DataFrame, np.ndarray], 
+                   method: str = 'standard', 
+                   fit: bool = True) -> np.ndarray:
+```
+
+**Parameters:**
+- `X`: Features (shape n_samples × n_features)
+- `method`: 'standard' (z-score) or 'minmax' (0-1 range)
+- `fit`: True for training data, False for test data
+
+**Scaling Methods:**
+- **'standard'**: (X - μ) / σ → mean=0, std=1
+- **'minmax'**: (X - min) / (max - min) → range [0, 1]
+
+**Example:**
+```python
+# Fit on training data
+X_train_scaled = engineer.scale_features(X_train, fit=True)
+
+# Transform test data (using training statistics)
+X_test_scaled = engineer.scale_features(X_test, fit=False)
+```
+
+**Output:**
+```python
+print(f"X_train_scaled mean: {X_train_scaled.mean(axis=0)}")  # ~0
+print(f"X_train_scaled std: {X_train_scaled.std(axis=0)}")    # ~1
+```
+
+---
+
+### Method: encode_labels(y, fit=True)
+
+**Signature:**
+```python
+def encode_labels(self, y: np.ndarray, 
+                  fit: bool = True) -> np.ndarray:
+```
+
+**Parameters:**
+- `y`: Labels (array of strings or integers)
+- `fit`: True for training labels, False for test
+
+**Example:**
+```python
+# Training
+y_train_encoded = engineer.encode_labels(y_train, fit=True)
+
+# Testing
+y_test_encoded = engineer.encode_labels(y_test, fit=False)
+
+# Inverse transform for predictions
+predictions = [0, 1, 1, 0, ...]
+labels = engineer.label_encoder.inverse_transform(predictions)
+# Output: ['stable', 'unstable', 'unstable', 'stable', ...]
+```
+
+**Mapping:**
+```python
+# Classes sorted alphabetically:
+# 'stable' → 0
+# 'unstable' → 1
+```
+
+---
+
+## MODULE 3: train_lr.py
+
+### Function: train_logistic_regression(X_train, y_train, optimize=False)
+
+**Signature:**
+```python
+def train_logistic_regression(X_train: np.ndarray, 
+                             y_train: np.ndarray, 
+                             optimize: bool = False) -> LogisticRegression:
+```
+
+**Parameters:**
+- `X_train`: Training features (shape n_samples × n_features)
+- `y_train`: Training labels (0 or 1)
+- `optimize`: If True, performs GridSearchCV; if False, uses defaults
+
+**Returns:**
+- `LogisticRegression`: Trained model
+
+**Default Parameters (optimize=False):**
+```python
+LogisticRegression(
+    C=1.0,
+    penalty='l2',
+    solver='lbfgs',
+    max_iter=1000,
+    random_state=42
+)
+```
+
+**Grid Search Parameters (optimize=True):**
+```python
+param_grid = {
+    'C': [0.001, 0.01, 0.1, 1, 10, 100],
+    'penalty': ['l1', 'l2'],
+    'solver': ['liblinear', 'saga'],
+    'max_iter': [100, 500, 1000]
+}
+# Total: 72 combinations tested with 5-fold CV
+```
+
+**Example:**
+```python
+# Quick training
+lr_model = train_logistic_regression(X_train_scaled, y_train, optimize=False)
+# Returns in ~30 seconds
+
+# Optimized training (slow)
+lr_model = train_logistic_regression(X_train_scaled, y_train, optimize=True)
+# Returns in ~300 seconds, best parameters printed
+```
+
+**Usage:**
+```python
+# Make predictions
+predictions = lr_model.predict(X_test_scaled)  # [0, 1, 0, 1, ...]
+
+# Get probabilities
+probabilities = lr_model.predict_proba(X_test_scaled)  # [[0.1, 0.9], ...]
+
+# Get feature weights (feature importance)
+weights = lr_model.coef_[0]  # Array of shape (n_features,)
+```
+
+---
+
+### Function: evaluate_model(model, X_test, y_test, model_name="Logistic Regression")
+
+**Signature:**
+```python
+def evaluate_model(model: BaseEstimator, 
+                   X_test: np.ndarray, 
+                   y_test: np.ndarray, 
+                   model_name: str = "Logistic Regression") -> dict:
+```
+
+**Returns:**
+```python
+{
+    'accuracy': float,          # 0.0-1.0
+    'precision': float,         # 0.0-1.0
+    'recall': float,            # 0.0-1.0
+    'f1': float,                # 0.0-1.0
+    'confusion_matrix': np.ndarray  # shape (2, 2)
+}
+```
+
+**Example:**
+```python
+metrics = evaluate_model(lr_model, X_test_scaled, y_test)
+print(f"Accuracy: {metrics['accuracy']:.4f}")
+print(f"Confusion Matrix:\n{metrics['confusion_matrix']}")
+```
+
+**Output:**
+```
+Logistic Regression Evaluation Results:
+========================================
+Accuracy:  0.9820
+Precision: 0.9820
+Recall:    0.9820
+F1 Score:  0.9820
+
+Confusion Matrix:
+[[499   9]
+ [  9 483]]
+
+Classification Report:
+              precision    recall  f1-score   support
+           0       0.98      0.98      0.98       508
+           1       0.98      0.98      0.98       492
+    accuracy                           0.98      1000
+   macro avg       0.98      0.98      0.98      1000
+weighted avg       0.98      0.98      0.98      1000
+```
+
+---
+
+### Function: save_results(metrics, results_dir, model_name="lr")
+
+**Signature:**
+```python
+def save_results(metrics: dict, 
+                 results_dir: str, 
+                 model_name: str = "lr") -> None:
+```
+
+**Creates File:**
+- `{results_dir}/{model_name}_accuracy.txt`
+
+**Example:**
+```python
+save_results(metrics, 'results/', 'lr')
+# Creates: results/lr_accuracy.txt
+```
+
+**File Content:**
+```
+Logistic Regression Model Results
+========================================
+
+Accuracy:  0.9820
+Precision: 0.9820
+Recall:    0.9820
+F1 Score:  0.9820
+
+Confusion Matrix:
+[[499   9]
+ [  9 483]]
+```
+
+---
+
+## MODULE 4: train_svm.py
+
+### Function: train_svm(X_train, y_train, optimize=False)
+
+**Signature:**
+```python
+def train_svm(X_train: np.ndarray, 
+              y_train: np.ndarray, 
+              optimize: bool = False) -> SVC:
+```
+
+**Default Parameters:**
+```python
+SVC(
+    C=1.0,
+    kernel='rbf',
+    gamma='scale',
+    random_state=42,
+    probability=True
+)
+```
+
+**Grid Search Parameters (optimize=True):**
+```python
+param_grid = {
+    'C': [0.1, 1, 10, 100],
+    'kernel': ['linear', 'rbf', 'poly'],
+    'gamma': ['scale', 'auto', 0.001, 0.01, 0.1],
+    'degree': [2, 3, 4]
+}
+# Total: 180 combinations
+```
+
+**Example:**
+```python
+svm_model = train_svm(X_train_scaled, y_train, optimize=False)
+# Returns in ~60 seconds
+
+svm_model = train_svm(X_train_scaled, y_train, optimize=True)
+# Returns in ~600 seconds, prints best parameters
+```
+
+**Usage:**
+```python
+predictions = svm_model.predict(X_test_scaled)
+probabilities = svm_model.predict_proba(X_test_scaled)
+decision = svm_model.decision_function(X_test_scaled)
+```
+
+---
+
+**Functions:** `evaluate_model()`, `save_results()` are identical to LR module
+
+---
+
+## MODULE 5: train_ids.py
+
+### Function: train_ids_models(data_path, output_dir, scenario_name)
+
+**Signature:**
+```python
+def train_ids_models(data_path: str, 
+                     output_dir: str, 
+                     scenario_name: str) -> Tuple[dict, np.ndarray]:
+```
+
+**Parameters:**
+- `data_path`: Path to attack dataset CSV
+- `output_dir`: Directory to save results
+- `scenario_name`: Display name for results
+
+**Returns:**
+- `results`: Dict with LR and SVM metrics
+- `classes`: Array of unique class labels
+
+**Example:**
+```python
+from python.train_ids import train_ids_models
+
+results, classes = train_ids_models(
+    data_path='data_attack/attack_dataset.csv',
+    output_dir='results_attack/',
+    scenario_name='Cyber-Attack Detection'
+)
+
+print(f"LR Accuracy: {results['LR']['accuracy']:.4f}")
+print(f"SVM Accuracy: {results['SVM']['accuracy']:.4f}")
+```
+
+**Output Structure:**
+```python
+results = {
+    'LR': {
+        'accuracy': 0.976,
+        'precision': 0.976,
+        'recall': 0.976,
+        'f1': 0.976,
+        'confusion': np.array([[...], [...]])
+    },
+    'SVM': {
+        'accuracy': 0.980,
+        'precision': 0.980,
+        'recall': 0.980,
+        'f1': 0.980,
+        'confusion': np.array([[...], [...]])
+    }
+}
+
+classes = np.array(['attack', 'normal'])  # or ['normal', 'unstable']
+```
+
+---
+
+## MODULE 6: generate_attack_data.py
+
+### Function: generate_attack_data(num_samples=100)
+
+**Signature:**
+```python
+def generate_attack_data(num_samples: int = 100) -> pd.DataFrame:
+```
+
+**Returns:**
+```python
+pd.DataFrame with columns:
+- timestamp, hour, voltage, current, active_power, reactive_power,
+- frequency, ev_demand, total_load, temperature, attack_type
+```
+
+**Attack Distribution:**
+- 40% attacks (FDI, Replay, DoS, Unauthorized equally split)
+- 60% normal
+
+**Example:**
+```python
+from python.generate_attack_data import generate_attack_data
+
+attack_df = generate_attack_data(num_samples=1000)
+print(attack_df['attack_type'].value_counts())
+```
+
+**Output:**
+```
+normal          600
+fdi             100
+replay          100
+dos             100
+unauthorized    100
+```
+
+**Attack Pattern Details:**
+
+**FDI:** False Data Injection
+```python
+voltage ∈ {0.7, 1.3} ± noise
+current ∈ [150, 250]  # 4-7× normal
+frequency ∈ {58.5, 61.5}  # Out of tolerance
+ev_demand ∈ [100, 200]  # Impossible
+```
+
+**Replay:** Identical Repeated Values
+```python
+voltage = 0.95 (exactly)
+current = 85.5 (exactly)
+active_power = 162.5 (exactly)
+# Same values repeated across records
+```
+
+**DoS:** Rapid Fluctuations
+```python
+voltage ~ Uniform[0.8, 1.1]
+current ~ Uniform[20, 180]
+frequency ~ Uniform[59.5, 60.5]
+# Designed to confuse/overwhelm
+```
+
+**Unauthorized:** Odd Hour Charging
+```python
+hour ∈ [2, 4]  # Off-peak time
+voltage = 0.92 ± noise
+current = 120 ± 5  # Suspicious pattern
+power = 220 ± 10   # At unusual hour
+```
+
+---
+
+## MODULE 7: visualize_results.py
+
+### Function: plot_confusion_matrix(y_true, y_pred, labels=None, title="...", save_path=None)
+
+**Signature:**
+```python
+def plot_confusion_matrix(y_true: np.ndarray, 
+                         y_pred: np.ndarray, 
+                         labels: list = None, 
+                         title: str = "Confusion Matrix",
+                         save_path: str = None,
+                         figsize: tuple = (8, 6)) -> None:
+```
+
+**Example:**
+```python
+from python.visualize_results import plot_confusion_matrix
+
+plot_confusion_matrix(
+    y_test, y_pred,
+    labels=['stable', 'unstable'],
+    title='Logistic Regression Confusion Matrix',
+    save_path='results/confusion_lr.png',
+    figsize=(8, 6)
+)
+```
+
+**Output:** Heatmap with confusion matrix saved as PNG
+
+---
+
+### Function: plot_feature_importance(model, feature_names, title="...", save_path=None, top_n=15)
+
+**Signature:**
+```python
+def plot_feature_importance(model: BaseEstimator, 
+                           feature_names: list, 
+                           title: str = "Feature Importance",
+                           save_path: str = None,
+                           top_n: int = 15,
+                           figsize: tuple = (10, 8)) -> None:
+```
+
+**Works with:**
+- LogisticRegression: Uses `coef_` (feature weights)
+- SVM: Uses `coef_` (for linear) or approximation
+- Tree-based: Uses `feature_importances_`
+
+**Example:**
+```python
+plot_feature_importance(
+    lr_model,
+    feature_names=['voltage', 'current', 'active_power', ...],
+    title='Logistic Regression Feature Importance',
+    save_path='results/feature_importance.png',
+    top_n=10
+)
+```
+
+---
+
+### Function: plot_correlation_matrix(df, save_path=None, figsize=(10, 8))
+
+**Signature:**
+```python
+def plot_correlation_matrix(df: pd.DataFrame, 
+                           save_path: str = None,
+                           figsize: tuple = (10, 8)) -> None:
+```
+
+**Example:**
+```python
+plot_correlation_matrix(
+    df_feat,
+    save_path='results/correlation_matrix.png'
+)
+```
+
+---
+
+## COMPLETE PIPELINE EXAMPLE
+
+```python
+import pandas as pd
+import numpy as np
+import joblib
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+# Step 1: Load data
+from python.load_data import load_csv_data
+df = load_csv_data('data/dataset.csv')
+
+# Step 2: Feature engineering
+from python.feature_engineering import FeatureEngineer
+engineer = FeatureEngineer()
+df_feat = engineer.create_power_features(df)
+df_stat = engineer.create_statistical_features(df_feat)
+
+# Step 3: Select features and labels
+feature_cols = [col for col in df_stat.columns if col not in ['timestamp', 'grid_stability']]
+X = df_stat[feature_cols].values
+y = df_stat['grid_stability'].values
+
+# Step 4: Preprocessing
+X_scaled = engineer.scale_features(X, fit=True)
+y_encoded = engineer.encode_labels(y, fit=True)
+
+# Step 5: Train-test split
+X_train, X_test, y_train, y_test = train_test_split(
+    X_scaled, y_encoded, test_size=0.2, random_state=42, stratify=y_encoded
+)
+
+# Step 6: Train models
+from python.train_lr import train_logistic_regression, evaluate_model as eval_lr
+from python.train_svm import train_svm, evaluate_model as eval_svm
+
+lr_model = train_logistic_regression(X_train, y_train, optimize=False)
+svm_model = train_svm(X_train, y_train, optimize=False)
+
+# Step 7: Evaluate
+lr_metrics = eval_lr(lr_model, X_test, y_test)
+svm_metrics = eval_svm(svm_model, X_test, y_test)
+
+# Step 8: Save models
+joblib.dump(lr_model, 'models/logistic_regression.pkl')
+joblib.dump(svm_model, 'models/svm_model.pkl')
+joblib.dump(engineer, 'models/feature_engineer.pkl')
+
+# Step 9: Visualize
+from python.visualize_results import plot_confusion_matrix
+plot_confusion_matrix(y_test, lr_model.predict(X_test), 
+                     save_path='results/confusion_lr.png')
+```
+
+---
+
+## DEPLOYMENT EXAMPLE
+
+```python
+import pandas as pd
+import joblib
+
+# Load models and preprocessor
+lr_model = joblib.load('models/logistic_regression.pkl')
+svm_model = joblib.load('models/svm_model.pkl')
+engineer = joblib.load('models/feature_engineer.pkl')
+
+# New EV charging request
+request = pd.DataFrame({
+    'voltage': [0.98],
+    'current': [75],
+    'active_power': [150],
+    'reactive_power': [65],
+    'frequency': [60.02],
+    'ev_demand': [40],
+    'total_load': [300],
+    'hour': [18],
+    'temperature': [22]
+})
+
+# Feature engineering
+request_feat = engineer.create_power_features(request)
+request_scaled = engineer.scale_features(request_feat, fit=False)
+
+# Predictions
+lr_pred = lr_model.predict(request_scaled)[0]
+lr_prob = lr_model.predict_proba(request_scaled)[0]
+
+svm_pred = svm_model.predict(request_scaled)[0]
+svm_prob = svm_model.predict_proba(request_scaled)[0]
+
+# Decision logic (majority voting)
+if lr_pred == 1 and svm_pred == 1:
+    decision = "ATTACK - BLOCK REQUEST"
+    confidence = max(lr_prob[1], svm_prob[1])
+elif lr_pred == 0 and svm_pred == 0:
+    decision = "NORMAL - ALLOW CHARGING"
+    confidence = max(lr_prob[0], svm_prob[0])
+else:
+    decision = "UNCERTAIN - ESCALATE TO OPERATOR"
+    confidence = 0.5
+
+print(f"{decision} (Confidence: {confidence:.2%})")
+```
+
+---
+
+## ERROR HANDLING
+
+```python
+# Handle missing data
+if df is None:
+    print("Failed to load data")
+    sys.exit(1)
+
+# Handle scaling without fit
+try:
+    X_scaled = engineer.scale_features(X_test, fit=False)
+except ValueError as e:
+    print(f"Error: {e}")
+    # Fit scaler first!
+    engineer.scale_features(X_train, fit=True)
+
+# Handle label encoding misses
+try:
+    y_encoded = engineer.encode_labels(['unknown_class'])
+except ValueError as e:
+    print(f"Unseen class in data: {e}")
+
+# Handle model predictions on wrong data shape
+if X_test.shape[1] != X_train.shape[1]:
+    print(f"Feature mismatch: {X_test.shape[1]} vs {X_train.shape[1]}")
+    sys.exit(1)
+```
+
+---
+
+**END OF TECHNICAL API REFERENCE**
+
+*Ready for seamless handoff to another AI system*

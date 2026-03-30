@@ -1,0 +1,266 @@
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ CHOICE [1] - NORMAL GRID OPERATION                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+PURPOSE: Train ML models to predict grid stability (stable vs unstable)
+
+WHAT IT DOES:
+  1. Loads data from: data/dataset.csv
+  2. Processes and cleans the data
+  3. Trains Logistic Regression model
+  4. Trains SVM model
+  5. Evaluates both models
+  6. Saves results
+
+OUTPUT FILES:
+  - results/lr_accuracy.txt     → LR model performance
+  - results/svm_accuracy.txt    → SVM model performance
+  - models/logistic_regression.pkl  → Saved LR model
+  - models/svm_model.pkl        → Saved SVM model
+
+FRESH VALUES? NO
+  - Uses SAME dataset (data/dataset.csv)
+  - Model weights may vary slightly due to random splits
+  - Same data → Similar results each run
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ CHOICE [2] - ATTACK DETECTION                                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+PURPOSE: Train IDS (Intrusion Detection System) to detect cyber-attacks
+
+WHAT IT DOES:
+  1. Checks if attack data exists
+  2. If NOT exists → Automatically generates new attack data
+  3. Loads data from: data_attack/attack_dataset.csv
+  4. Trains IDS model (RandomForest/SVM)
+  5. Detects: normal vs attack (FDI, Replay, DoS, Unauthorized)
+
+OUTPUT FILES:
+  - results_attack/ids_results.txt  → IDS performance
+  - results_attack/*.png            → Attack analysis plots
+
+FRESH VALUES? DEPENDS
+  - If attack_dataset.csv already exists → Uses same data (NO fresh)
+  - If file missing → Generates new data (YES fresh, but with seed=42)
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ CHOICE [3] - COMPARE BOTH                                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+PURPOSE: Run both Normal and Attack scenarios, show comparison
+
+WHAT IT DOES:
+  1. Runs Choice [1] - Normal Grid
+  2. Runs Choice [2] - Attack Detection
+  3. Prints side-by-side comparison summary
+  4. Shows differences between scenarios
+
+OUTPUT FILES:
+  - All files from Choice [1] AND Choice [2]
+
+FRESH VALUES? NO (combines both scenarios with existing data)
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ CHOICE [4] - GENERATE ATTACK DATA  ⚠️ IMPORTANT!                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+PURPOSE: Create NEW synthetic cyber-attack dataset
+
+WHAT IT DOES:
+  1. Generates 100 mixed samples (60% normal, 40% attack)
+  2. Generates 50 pure attack samples
+  3. Simulates 4 attack types:
+     - FDI (False Data Injection): Fake sensor values
+     - Replay Attack: Identical repeated patterns
+     - DoS Attack: Random rapid fluctuations
+     - Unauthorized: Suspicious access patterns
+  4. OVERWRITES existing attack data files!
+
+OUTPUT FILES:
+  - data_attack/attack_dataset.csv   → Mixed normal+attack (OVERWRITTEN)
+  - data_attack/pure_attack_data.csv → Pure attacks only (OVERWRITTEN)
+
+⭐ FRESH VALUES? YES AND NO - TRICKY! ⭐
+
+  The script uses: np.random.seed(42)
+  
+  This means:
+  ┌───────────────────────────────────────────────────────────────────┐
+  │  SAME seed(42) = SAME "random" numbers EVERY TIME                 │
+  │  Running 10 times → Get IDENTICAL data 10 times                   │
+  └───────────────────────────────────────────────────────────────────┘
+  
+  WHY? For reproducibility (research papers need same results)
+  
+  TO GET TRULY FRESH VALUES:
+  Option A: Delete or comment out the line:
+            np.random.seed(42)
+            
+  Option B: Change seed number:
+            np.random.seed(123)  or np.random.seed(999)
+            
+  Option C: Use time-based seed:
+            np.random.seed(int(time.time()))
+
+  File location: python/generate_attack_data.py (Line 17)
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ CHOICE [5] - VISUALIZE                                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+PURPOSE: Generate all visualization plots and graphs
+
+WHAT IT DOES:
+  1. Loads data/dataset.csv
+  2. Creates feature distribution histograms
+  3. Creates correlation matrix heatmap
+  4. Loads trained models (if exist)
+  5. Creates confusion matrices for LR and SVM
+  6. Creates model comparison bar chart
+
+OUTPUT FILES:
+  - results/data_distribution.png   → Feature histograms
+  - results/correlation_matrix.png  → Feature correlations
+  - results/confusion_lr.png        → LR confusion matrix
+  - results/confusion_svm.png       → SVM confusion matrix
+  - results/model_comparison.png    → LR vs SVM comparison
+
+⭐ FRESH VALUES? NO - Based on existing data and models ⭐
+
+  - Uses SAME dataset (data/dataset.csv)
+  - Uses SAME trained models (models/*.pkl)
+  - BUT random train/test split may cause SLIGHT variations
+  
+  The script uses: random_state=42 in train_test_split
+  This means: Same data → Same split → Same graphs every time
+
+  IF YOU WANT DIFFERENT GRAPHS:
+  1. First run Choice [4] with different seed → New attack data
+  2. Then run Choice [1] or [2] → Retrain models
+  3. Then run Choice [5] → New visualizations based on new models
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ CHOICE [6] - RUN ALL                                                        │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+PURPOSE: Execute complete pipeline from start to finish
+
+WHAT IT DOES (in order):
+  1. Generate attack data     → data_attack/*.csv
+  2. Load normal data         → data/dataset.csv
+  3. Train LR model           → models/logistic_regression.pkl
+  4. Train SVM model          → models/svm_model.pkl
+  5. Train IDS model          → For attack detection
+  6. Generate visualizations  → results/*.png
+
+OUTPUT: ALL files from ALL scenarios
+
+FRESH VALUES? Same as individual choices (seed-controlled)
+
+
+================================================================================
+         SUMMARY: WILL I GET FRESH NEW VALUES?
+================================================================================
+
+┌──────────────────────────┬────────────────────────────────────────────────┐
+│ SCENARIO                 │ FRESH VALUES?                                  │
+├──────────────────────────┼────────────────────────────────────────────────┤
+│ [1] Normal Grid          │ NO - Same data/dataset.csv                     │
+│ [2] Attack Detection     │ NO - Uses existing attack data                 │
+│ [3] Compare Both         │ NO - Combines [1] + [2]                        │
+│ [4] Generate Attack      │ NO* - seed(42) makes it deterministic          │
+│ [5] Visualize            │ NO - Based on existing data/models             │
+│ [6] Run All              │ NO* - Same as above                            │
+└──────────────────────────┴────────────────────────────────────────────────┘
+
+* Can be changed by modifying random seed in code
+
+================================================================================
+               HOW TO GET TRULY FRESH/DIFFERENT VALUES
+================================================================================
+
+OPTION 1: Modify Random Seeds (Recommended)
+-------------------------------------------
+Files to edit:
+  python/generate_attack_data.py  Line 17: np.random.seed(42)
+  python/train_lr.py              Line: random_state=42
+  python/train_svm.py             Line: random_state=42
+
+Change to:
+  np.random.seed(None)  → True random
+  np.random.seed(123)   → Different but reproducible
+
+
+OPTION 2: Use Different Dataset
+-------------------------------
+Replace data/dataset.csv with your own data
+Keep same column structure
+
+
+OPTION 3: Change Train/Test Split
+---------------------------------
+In training files, change:
+  train_test_split(..., test_size=0.2, ...)
+To:
+  train_test_split(..., test_size=0.3, ...)  → 70/30 split instead of 80/20
+
+
+================================================================================
+                      TYPICAL WORKFLOW
+================================================================================
+
+FIRST TIME SETUP:
+  python main.py → Select [6] Run All
+  (This sets up everything)
+
+DAILY USE:
+  python main.py → Select [1] or [2] depending on task
+
+GENERATE NEW REPORTS:
+  1. python main.py → Select [4] (optional: modify seed first)
+  2. python main.py → Select [1] or [2]
+  3. python main.py → Select [5]
+
+QUICK VISUALIZATION ONLY:
+  python main.py --visualize
+
+
+================================================================================
+                         FILE STRUCTURE REFERENCE
+================================================================================
+
+EV_SmartGrid_ML/
+├── main.py                          ← START HERE
+├── data/
+│   └── dataset.csv                  ← Normal grid data (unchanging)
+├── data_attack/
+│   ├── attack_dataset.csv           ← Generated by Choice [4]
+│   └── pure_attack_data.csv         ← Generated by Choice [4]
+├── models/
+│   ├── logistic_regression.pkl      ← Trained LR model
+│   └── svm_model.pkl                ← Trained SVM model
+├── results/
+│   ├── lr_accuracy.txt
+│   ├── svm_accuracy.txt
+│   ├── confusion_lr.png
+│   ├── confusion_svm.png
+│   ├── model_comparison.png
+│   ├── data_distribution.png
+│   └── correlation_matrix.png
+├── results_attack/
+│   └── ids_results.txt
+└── python/
+    ├── generate_attack_data.py      ← Creates attack data
+    ├── train_lr.py                  ← Trains Logistic Regression
+    ├── train_svm.py                 ← Trains SVM
+    ├── train_ids.py                 ← Trains IDS
+    ├── visualize_results.py         ← Creates all graphs
+    └── ...
+
+

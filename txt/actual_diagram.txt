@@ -1,0 +1,25 @@
+u r getting completely wrong flow 
+                                                                                     3phase source--bus4----RL branch
+                                                                                                                    |
+                                                                                                                    |
+    3p src--RL brch----bus1--t/f--bus2--RL brnch--gnd                                                               |                                                                   
+                    RL branch                                                                                      bus5
+                    |                                                                                                |
+                    |                                                                                              t/f
+                    |                                                                                                |
+    -------bus3------------------------------------------------------------------------------------------------------
+      |                                                |                                     |                        |
+     RL                                               bus9                                     RL                     |
+    brnc                                                |                                      branch8                |
+       bus6                                            t/f                                     |                      C load                                                                                         
+         |                                               |------subsys             ----------bus11-------             gnd  
+  -----------------------------------------|             |                        |                    |
+  |                                        |          RL brnch                  t/f                  t/f
+  t/f                                     t/f           |                         |                     |
+  |                                        |           gnd                     bus12                 bus13 
+  bus7                                   bus8                                     |                      |
+  |--------- subsystem                     |                                RL brnch                   RL branch
+  |                                       RL brch                                 |                       |
+  mes                                     |                                       gnd                      gnd
+  auments                                 |
+(pwr box -p,q)                           gnd

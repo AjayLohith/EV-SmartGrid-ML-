@@ -1,0 +1,232 @@
+================================================================================
+        SIMULINK TO ML DATA FLOW DOCUMENTATION
+        EV SmartGrid Intrusion Detection System
+================================================================================
+
+--------------------------------------------------------------------------------
+PART 1: DATA FLOW FROM SIMULINK TO ML ALGORITHMS
+--------------------------------------------------------------------------------
+
+STEP 1: THREE-PHASE VOLTAGE SOURCE (VI Source)
+----------------------------------------------
+- The IEEE 13-bus power system starts with a three-phase AC voltage source
+- Generates sinusoidal voltages at phases A, B, C (120° apart)
+- Provides the power that flows through the entire grid network
+
+                    [Three-Phase Source]
+                           |
+                      A    B    C
+                      |    |    |
+                      v    v    v
+                    (Power flows to buses)
+
+
+STEP 2: POWER FLOWS THROUGH BUSES → REACHES BUS7
+-------------------------------------------------
+- Power travels through transmission lines and transformers
+- Passes through multiple buses (bus1, bus2, ... bus7)
+- Bus7 is a CRITICAL MEASUREMENT POINT because:
+  * It's a load bus where EV charging stations connect
+  * Captures the combined effect of grid conditions + EV demand
+  * Any attack on EV charging requests will show up here
+
+                    Source → Bus1 → Bus3 → Bus7
+                                              ↓
+                                    [EV Charging Load]
+
+
+STEP 3: V-I MEASUREMENT BLOCK AT BUS7
+--------------------------------------
+- Three-Phase V-I Measurement block connected at Bus7
+- Measures:
+  * Vabc = Three-phase voltages (Va, Vb, Vc)
+  * Iabc = Three-phase currents (Ia, Ib, Ic)
+
+        Bus7 ──────► [V-I Measurement Block]
+                            |
+                     ┌──────┴──────┐
+                     ↓             ↓
+                   Vabc          Iabc
+                 (Voltages)    (Currents)
+
+
+STEP 4: POWER CALCULATION BLOCK
+-------------------------------
+- V and I signals go into Power Measurement block
+- Calculates:
+  * P = Active Power (real power consumption in Watts)
+  * Q = Reactive Power (reactive component in VARs)
+
+- Formulas used:
+  * P = V × I × cos(φ)    [Real power]
+  * Q = V × I × sin(φ)    [Reactive power]
+  * S = √(P² + Q²)        [Apparent power]
+
+                     V ──────► [Power Block] ──────► P (Active Power)
+                     I ──────►               ──────► Q (Reactive Power)
+
+
+STEP 5: TO WORKSPACE BLOCKS (simout, simout1)
+---------------------------------------------
+- "To Workspace" blocks export data to MATLAB workspace
+- Configuration:
+  
+  Block Name    Signal              Variable Name    Data Format
+  ----------    ----------------    -------------    -----------
+  simout        P (Active Power)    simout           Array/Timeseries
+  simout1       Q (Reactive Power)  simout1          Array/Timeseries
+
+                     P ──────► [To Workspace: simout]  ──► MATLAB Workspace
+                     Q ──────► [To Workspace: simout1] ──► MATLAB Workspace
+
+
+STEP 6: EXPORT FROM MATLAB WORKSPACE TO PYTHON
+----------------------------------------------
+- After simulation ends, data is in MATLAB workspace
+- Export methods:
+
+  METHOD A: Save as .mat file
+  ---------------------------
+  >> save('power_signals.mat', 'simout', 'simout1')
+  
+  In Python:
+  >>> import scipy.io as sio
+  >>> data = sio.loadmat('power_signals.mat')
+  >>> active_power = data['simout']
+  >>> reactive_power = data['simout1']
+
+  METHOD B: Save as .csv file
+  ---------------------------
+  >> csvwrite('simulink_data.csv', [simout, simout1])
+  
+  In Python:
+  >>> import pandas as pd
+  >>> df = pd.read_csv('simulink_data.csv')
+
+
+STEP 7: FEATURE ENGINEERING IN PYTHON
+--------------------------------------
+- Raw P and Q values are transformed into ML features:
+
+  Input Features from Simulink:
+  - active_power (P from simout)
+  - reactive_power (Q from simout1)
+  
+  Derived Features:
+  - apparent_power = √(P² + Q²)
+  - power_factor = P / apparent_power
+  - power_ratio = P / Q
+
+  Additional Measurements (can be added):
+  - voltage, current, frequency
+  - ev_demand, total_load
+
+
+STEP 8: ML MODEL INPUT
+----------------------
+- Final feature vector for ML algorithms:
+
+  feature_cols = ['voltage', 'current', 'active_power', 'reactive_power',
+                  'frequency', 'ev_demand', 'total_load']
+
+- Models used:
+  * Logistic Regression (LR) - for binary classification
+  * Support Vector Machine (SVM) - for complex decision boundaries
+
+- Output:
+  * Normal request vs Attack detected
+  * Attack types: FDI, DoS, Unauthorized charging
+
+
+--------------------------------------------------------------------------------
+PART 2: IS MEASURING ONLY AT BUS7 SUFFICIENT?
+--------------------------------------------------------------------------------
+
+SHORT ANSWER: Yes, for this project it is SUFFICIENT, but can be improved.
+
+WHY BUS7 ALONE WORKS:
+---------------------
+1. Bus7 is the EV CHARGING POINT - attacks target here
+2. Captures COMBINED EFFECT of entire grid upstream
+3. Any voltage/current anomaly propagates to this point
+4. Power values (P, Q) reflect overall grid health
+
+LIMITATIONS OF SINGLE-POINT MEASUREMENT:
+-----------------------------------------
+1. Cannot identify EXACT LOCATION of attack
+2. May miss attacks on other buses (Bus3, Bus10, etc.)
+3. Limited view of distributed attack scenarios
+
+RECOMMENDED IMPROVEMENTS (Optional):
+------------------------------------
+For more robust detection, add measurements at:
+
+  Bus      Purpose                          Priority
+  ----     -------------------------------- ---------
+  Bus7     EV charging point (current)      ✓ DONE
+  Bus3     Substation/transformer           High
+  Bus1     Source monitoring                Medium
+  Bus10    Secondary load point             Medium
+
+Multi-point measurement code in Simulink:
+  - Add V-I Measurement blocks at Bus3, Bus1
+  - Create additional To Workspace blocks:
+    * simout_bus3, simout1_bus3
+    * simout_bus1, simout1_bus1
+
+
+--------------------------------------------------------------------------------
+PART 3: COMPLETE DATA PIPELINE SUMMARY
+--------------------------------------------------------------------------------
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        SIMULINK ENVIRONMENT                                 │
+│                                                                             │
+│  [3-Phase Source] → [Bus1] → [Bus3] → [Bus7] → [V-I Measurement]            │
+│                                                   ↓         ↓               │
+│                                                 Vabc      Iabc              │
+│                                                   ↓         ↓               │
+│                                              [Power Calculation]            │
+│                                                   ↓         ↓               │
+│                                                   P         Q               │
+│                                                   ↓         ↓               │
+│                                              [simout]   [simout1]           │
+│                                                   ↓         ↓               │
+│                                              ─────────────────              │
+│                                                     ↓                       │
+│                                            [MATLAB Workspace]               │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                                     ↓
+                                            [Export .mat/.csv]
+                                                     ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         PYTHON ENVIRONMENT                                  │
+│                                                                             │
+│  [Load Data] → [Feature Engineering] → [Train/Test Split] → [ML Models]     │
+│       ↓                  ↓                                       ↓          │
+│  active_power      apparent_power                         ┌─────────────┐   │
+│  reactive_power    power_factor                           │ LR Model    │   │
+│  voltage           voltage_deviation                      │ SVM Model   │   │
+│  current           current_squared                        └─────────────┘   │
+│  frequency         ev_load_ratio                                ↓           │
+│  ev_demand                                                 [Predictions]    │
+│  total_load                                                     ↓           │
+│                                                            Normal/Attack    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+
+--------------------------------------------------------------------------------
+PART 4: KEY MEASUREMENTS AND THEIR ML PURPOSE
+--------------------------------------------------------------------------------
+
+Measurement Point    What It Captures           Attack Detection Purpose
+-----------------    ---------------------      ---------------------------
+Voltage (V)          Grid voltage level         FDI attacks cause abnormal V
+Current (I)          Load current               DoS causes current drops
+Active Power (P)     Real power consumption     Unauthorized charging = high P
+Reactive Power (Q)   Power quality indicator    Power factor attacks alter Q
+Frequency (f)        Grid frequency             Instability shows freq changes
+EV Demand            EV charging requests       Attack target identification
+
+

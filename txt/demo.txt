@@ -299,7 +299,7 @@ Instead of trusting all incoming data/requests:
          ▼                                ▼
       ALLOW ✓                         BLOCK ✗
     (Process request)              (Alert operator)
-
+    
 
 SUMMARY: Why Electrical Grids Can Be Hacked
 -------------------------------------------
@@ -850,31 +850,3 @@ A: Request is flagged for manual review. Conservative approach:
    - If either says ATTACK → Investigate
    - Only allow if BOTH say NORMAL
 
-================================================================================
-                              END OF DOCUMENT
-================================================================================
-
-QUICK REFERENCE - FILES:
-------------------------
-main.py                  → Run entire project (start here)
-python/load_data.py      → Load and process Simulink data
-python/train_lr.py       → Train Logistic Regression
-python/train_svm.py      → Train SVM
-python/train_ids.py      → Train Intrusion Detection System
-python/generate_attack_data.py → Create attack dataset
-python/visualize_results.py    → Generate plots
-
-data/dataset.csv         → Normal operation data
-data_attack/attack_dataset.csv → Attack patterns data
-results/                 → Normal analysis outputs
-results_attack/          → Attack detection outputs
-
-DEMO COMMANDS:
---------------
-python main.py           → Interactive menu
-python main.py --compare → Show normal vs attack difference
-python main.py --all     → Run complete pipeline
-
-================================================================================
-                    Prepared for Project Guide Presentation
-================================================================================

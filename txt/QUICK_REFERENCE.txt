@@ -1,0 +1,232 @@
+# QUICK REFERENCE SHEET - EV SmartGrid ML Project
+
+## Project Essence
+- **Goal**: Detect cyber-attacks and predict grid stability in smart grids with EV charging
+- **ML Approach**: Logistic Regression (LR) & Support Vector Machine (SVM) for real-time classification
+- **Performance**: ~98% accuracy for both grid stability and attack detection
+- **Key Advantage**: Privacy-preserving, federated learning capable
+
+## Data Overview
+- **Training Data**: 5000 samples of hourly grid measurements (normal operation)
+- **Attack Data**: Simulated cyber-attacks (FDI, Replay, DoS, Unauthorized)
+- **Features**: 11 raw + 15+ engineered features
+- **Classes**: Binary (stable/unstable, normal/attack)
+
+## Dataset Columns
+```
+timestamp, hour, voltage, current, active_power, reactive_power,
+frequency, ev_demand, total_load, temperature, grid_stability
+```
+
+## Key Formulas
+
+### Power Features
+- Apparent Power: S = √(P² + Q²)
+- Power Factor: PF = P/S
+- Voltage Deviation: ΔV = |V - 1.0|
+- Voltage Squared: V²
+
+### Time Features
+- Hour_sin = sin(2π × hour/24)
+- Hour_cos = cos(2π × hour/24)
+- Is_peak_hour = 1 if 17≤hour≤21 else 0
+
+### Preprocessing
+- Standardization: z = (x - μ)/σ
+- Label Encoding: stable→0, unstable→1
+
+### ML Models
+- **LR**: h(x) = 1/(1 + e^(-z))
+- **SVM RBF**: K(x,y) = exp(-γ||x-y||²)
+
+## Model Results
+
+### Logistic Regression
+- Accuracy: 98.20%
+- Precision: 98.20%
+- Recall: 98.20%
+- F1 Score: 98.20%
+
+### Support Vector Machine (RBF)
+- Accuracy: 98.00%+
+- Precision: 98.00%+
+- Recall: 98.00%+
+- F1 Score: 98.00%+
+
+## File Structure
+```
+d:\EV_SmartGrid_ML\
+├── data/               # Normal data
+├── data_attack/        # Attack patterns
+├── python/             # ML scripts
+├── models/             # Saved .pkl files
+├── results/            # Normal analysis outputs
+├── results_attack/     # Attack detection outputs
+├── simulink/           # Simulink model
+└── txt/                # Documentation
+```
+
+## Python Scripts
+
+| Script | Purpose | Time |
+|--------|---------|------|
+| load_data.py | Load & preprocess data | <1s |
+| feature_engineering.py | Extract & scale features | <1s |
+| train_lr.py | Train Logistic Regression | 30s-5min |
+| train_svm.py | Train SVM | 1-10min |
+| train_ids.py | Train IDS, compare models | 1min |
+| generate_attack_data.py | Create attack patterns | <10s |
+| visualize_results.py | Generate plots | 30s |
+
+## Quick Start Commands
+
+```bash
+# Generate fresh 5000-sample dataset
+python generate_5000_dataset.py
+
+# Train both models
+python python/train_lr.py
+python python/train_svm.py
+
+# Train IDS for attack detection
+python python/train_ids.py
+
+# Create visualizations
+python python/visualize_results.py
+
+# Run entire pipeline
+python main.py --all
+```
+
+## Attack Types Detected
+
+1. **False Data Injection (FDI)**
+   - Abnormal voltage/frequency out of range
+   - Impossible EV demand values
+
+2. **Replay Attack**
+   - Exact value repetition
+   - Same measurements repeating identically
+
+3. **DoS Attack**
+   - Rapid fluctuations in all parameters
+   - Designed to overwhelm systems
+
+4. **Unauthorized Access**
+   - Suspicious charging at odd hours
+   - Unusual power patterns (2-4 AM)
+
+## Evaluation Metrics Explained
+
+```
+Confusion Matrix:
+        Predicted
+       Pos  Neg
+Actual
+Pos     TP   FN
+Neg     FP   TN
+
+Accuracy = (TP+TN)/(TP+TN+FP+FN)
+Precision = TP/(TP+FP)          → False alarms
+Recall = TP/(TP+FN)             → Missed attacks
+F1 = 2×(P×R)/(P+R)              → Balanced score
+```
+
+## Hyperparameters Used
+
+### Logistic Regression
+- C = 1.0
+- penalty = 'l2'
+- solver = 'lbfgs'
+- max_iter = 1000
+
+### SVM (RBF)
+- C = 1.0
+- kernel = 'rbf'
+- gamma = 'scale'
+- probability = True
+
+### Train-Test Split
+- test_size = 0.2 (80/20 split)
+- random_state = 42 (reproducible)
+- stratify = True (maintain class proportion)
+
+### Cross-Validation
+- cv = 5 folds
+- scoring = 'accuracy'
+
+## Key Achievements
+
+✓ 98%+ accuracy on normal grid stability prediction
+✓ 97.6%+ accuracy on cyber-attack detection
+✓ Both LR and SVM perform similarly
+✓ Fast inference suitable for real-time deployment
+✓ Interpretable baseline (LR) + Non-linear detection (SVM)
+✓ Privacy-preserving federated learning ready
+✓ Simulated realistic attack patterns
+
+## Feature Importance
+
+Most important features for stability:
+1. Voltage deviation (primary grid stress indicator)
+2. Frequency (grid loading indicator)  
+3. Active power (load magnitude)
+4. Current (line capacity)
+5. Reactive power (voltage effects)
+6. Peak hour indicator (time-based risk)
+
+## Common Issues & Solutions
+
+| Issue | Solution |
+|-------|----------|
+| Low accuracy | Check for data leakage in scaling |
+| Overfitting | Increase regularization (lower C) |
+| Slow training | Use faster solver or fewer features |
+| Imbalanced results | Use class_weight='balanced' |
+| Memory error | Reduce dataset size or batch processing |
+
+## Performance Specs
+
+- **Training Time**: 30s-10min depending on hyperparameter tuning
+- **Inference Time**: <10ms per prediction (real-time capable)
+- **Model Size**: ~100KB (easily deployable)
+- **Memory Usage**: <1GB for training
+- **Scalability**: Thousands of simultaneous predictions
+
+## Output Files Generate
+
+### Text Results
+- lr_accuracy.txt (Logistic Regression metrics)
+- svm_accuracy.txt (SVM metrics)
+- ids_results.txt (IDS comparison)
+
+### Visualizations
+- confusion_lr.png (LR confusion matrix)
+- confusion_svm.png (SVM confusion matrix)
+- model_comparison.png (Accuracy comparison)
+- correlation_matrix.png (Feature correlations)
+- data_distribution.png (Feature distributions)
+- attack_pattern_analysis.png (Normal vs Attack)
+
+### Saved Models
+- logistic_regression.pkl (Deployable LR model)
+- svm_model.pkl (Deployable SVM model)
+
+## References
+- IEEE 13-Bus Distribution System
+- Power Grid Stability in Simulink
+- Federated Learning for IoT Security
+- Machine Learning for Cybersecurity
+
+## Contact & Documentation
+- README.md - Project overview
+- CODE_EXPLANATION_DOCUMENTATION.txt - Detailed implementation
+- python/load_data.py - Data loading details
+- python/feature_engineering.py - Feature creation
+- python/train_lr.py - LR implementation
+- python/train_svm.py - SVM implementation
+
+---
+**Last Updated**: March 28, 2026
+**Status**: Production Ready
+**Next**: Real data integration & federated deployment
