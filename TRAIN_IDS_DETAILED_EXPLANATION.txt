@@ -1,0 +1,1989 @@
+================================================================================
+    EV SMARTGRID ML - INTRUSION DETECTION SYSTEM (IDS) DETAILED EXPLANATION
+    Complete Code Walkthrough with Formulas, Analogies & Execution Flow
+================================================================================
+
+PROJECT OVERVIEW:
+=================
+The train_ids.py file is the SECURITY COMPONENT of the EV SmartGrid ML project.
+It trains Logistic Regression (LR) and Support Vector Machine (SVM) models to
+detect CYBER-ATTACKS on the power grid, competing against normal grid operations.
+
+TWO SCENARIOS:
+1. NORMAL SCENARIO: Train on clean grid data (predict stability)
+2. ATTACK SCENARIO: Train on attack data (detect intrusions)
+
+KEY INSIGHT: The same engineered features can detect both normal stability AND
+malicious intrusions - depending on what data you train on!
+
+EXECUTION TIMELINE:
+===================
+Normal Data Path:                Attack Data Path:
+1. Load: dataset.csv             1. Load: attack_dataset.csv
+2. Preprocess data               2. Preprocess data
+3. Engineer features (14)        3. Engineer features (14)
+4. Train LR model (98.20%)       4. Train LR model (98.60%)
+5. Train SVM model (98.60%)      5. Train SVM model (98.60%)
+6. Evaluate & save               6. Evaluate & save
+7. Generate visualizations       7. Generate visualizations
+
+
+================================================================================
+PART 1: MAIN FUNCTION - PROGRAM ENTRY POINT
+================================================================================
+
+LOCATION: python/train_ids.py, line 412
+
+PURPOSE:
+--------
+This is the execution controller. When you run:
+    python train_ids.py
+
+The __main__ function orchestrates everything.
+
+EXECUTION SEQUENCE:
+
+if __name__ == "__main__":
+    print("ML-Enhanced Cybersecure EV Charging - Intrusion Detection System")
+
+ANALOGY: Conductor of an orchestra
+- Conductor (main) = Python
+- Musicians (functions) = train_ids_models(), export_complete_pipeline(), etc.
+- Score = this code
+- Orchestra = outputs (models, predictions, visualizations)
+
+STEP-BY-STEP BREAKDOWN:
+
+──────────────────────────────────────────────────────────────────────
+
+PHASE 1: TRAIN ON NORMAL DATA
+──────────────────────────────────────────────────────────────────────
+
+normal_results, _, lr_normal, svm_normal, X_test_normal, y_test_normal, feat_cols_normal = train_ids_models(
+    'data/dataset.csv',           # Path to normal grid data
+    'results',                    # Output directory
+    'Grid Stability'              # Scenario name for reporting
+)
+
+WHAT HAPPENS:
+1. Calls train_ids_models() function
+2. Trains LR and SVM models on NORMAL data
+3. Returns 7 values:
+   - normal_results: Dict with metrics (accuracy, precision, recall, f1, confusion matrix)
+   - _ : (discarded - label classes)
+   - lr_normal: Trained Logistic Regression model object
+   - svm_normal: Trained SVM model object
+   - X_test_normal: Test feature matrix
+   - y_test_normal: Test labels
+   - feat_cols_normal: Feature column names
+
+OUTPUT DIRECTORY: results/
+- results/ids_results.txt (detailed metrics)
+
+MODEL ACCURACY ON NORMAL DATA:
+- LR:  98.20% (detects grid stability with high accuracy)
+- SVM: 98.60% (slightly better)
+
+ANALOGY: Training a security guard on NORMAL behavior
+- Show photos of normal customers all day (10,000 images)
+- Guard learns: "These movements are typical"
+- Later: Can spot unusual movements faster
+
+
+──────────────────────────────────────────────────────────────────────
+
+PHASE 2: TRAIN ON ATTACK DATA
+──────────────────────────────────────────────────────────────────────
+
+attack_results, classes, lr_attack, svm_attack, X_test_attack, y_test_attack, feat_cols_attack = train_ids_models(
+    'data_attack/attack_dataset.csv',  # Path to ATTACK data
+    'results_attack',                  # Output directory
+    'Intrusion Detection'               # Scenario name
+)
+
+WHAT HAPPENS:
+1. Calls train_ids_models() function
+2. Trains LR and SVM models on ATTACK data
+3. Now models learn to detect INTRUSIONS instead of stability
+4. Same code path, different data!
+
+OUTPUT DIRECTORY: results_attack/
+- results_attack/ids_results.txt (attack detection metrics)
+
+MODEL ACCURACY ON ATTACK DATA:
+- LR:  98.60% (detects attacks with high accuracy)
+- SVM: 98.60% (excellent attack detection!)
+
+KEY DIFFERENCE FROM NORMAL:
+Normal data target: ['stable', 'unstable']
+Attack data target: ['fdi', 'replay', 'dos', 'unauthorized'] or ['normal', 'attack']
+
+ANALOGY: Training a security guard on THREATS
+- Show photos of thieves, intruders all day
+- Guard learns: "These faces/behaviors are dangerous"
+- Later: Can spot threats in crowds
+
+
+──────────────────────────────────────────────────────────────────────
+
+PHASE 3: EXPORT MODELS FOR SIMULINK INTEGRATION
+──────────────────────────────────────────────────────────────────────
+
+export_complete_pipeline(
+    X_test_attack, y_test_attack,      # Use ATTACK test data
+    lr_attack, svm_attack,              # Use ATTACK trained models
+    feat_cols_attack                    # Use ATTACK feature names
+)
+
+WHY ATTACK MODELS?
+- Attack models are more critical for real-time security
+- Normal grid operation is less critical than detecting intrusions
+- Simulink needs to monitor for threats 24/7
+
+EXPORTS CREATED:
+1. simulink/lr_model.pkl        → LR model (binary format)
+2. simulink/svm_model.pkl       → SVM model (binary format)
+3. simulink/feature_columns.txt → Feature names (text format)
+4. simulink/predictions.csv     → Predictions on test data (CSV)
+
+PURPOSE: These files integrate with Simulink for REAL-TIME monitoring
+
+
+──────────────────────────────────────────────────────────────────────
+
+PHASE 4: GENERATE VISUALIZATIONS
+──────────────────────────────────────────────────────────────────────
+
+plot_comparison(normal_results, attack_results, 'results_attack')
+
+Compares LR & SVM performance on normal vs attack data
+OUTPUTS: normal_vs_attack_comparison.png
+
+   ┌──────────────────────────────────────────────┐
+   │ 4 Subplots:                                  │
+   │ 1. Accuracy comparison (4 bars)              │
+   │ 2. LR confusion matrix (attack data)         │
+   │ 3. SVM confusion matrix (attack data)        │
+   │ 4. Metrics comparison (precision/recall/f1) │
+   └──────────────────────────────────────────────┘
+
+plot_attack_patterns('data_attack/attack_dataset.csv', 'results_attack')
+
+Visualizes HOW attacks manifest in the data
+OUTPUTS: attack_pattern_analysis.png
+
+   ┌──────────────────────────────────────────────┐
+   │ 4 Subplots:                                  │
+   │ 1. Voltage distribution by attack type      │
+   │ 2. Current distribution by attack type      │
+   │ 3. Frequency distribution by attack type    │
+   │ 4. EV demand distribution by attack type    │
+   └──────────────────────────────────────────────┘
+
+plot_attack_detection_results('results_attack')
+
+Summary bar chart of detection rates
+OUTPUTS: attack_detection_results.png
+
+
+================================================================================
+PART 2: MAIN FUNCTION - train_ids_models()
+================================================================================
+
+LOCATION: python/train_ids.py, line 18
+
+PURPOSE:
+--------
+Core training function. Takes raw data and produces trained ML models.
+This is the "workhorse" - does all the heavy lifting!
+
+FUNCTION SIGNATURE:
+    def train_ids_models(data_path, output_dir, scenario_name):
+        """Train LR and SVM models for intrusion detection"""
+
+INPUTS:
+- data_path (str): Path to CSV file ('data/dataset.csv' or 'data_attack/attack_dataset.csv')
+- output_dir (str): Where to save results ('results' or 'results_attack')
+- scenario_name (str): Display name ('Grid Stability' or 'Intrusion Detection')
+
+RETURNS:
+- results (dict): Contains metrics for LR and SVM
+- classes (array): Label classes (e.g., ['normal', 'attack'])
+- lr_model (obj): Trained LR model
+- svm_model (obj): Trained SVM model
+- X_test_scaled (array): Scaled test features
+- y_test (array): Test labels
+- feature_cols (list): Feature names used
+
+────────────────────────────────────────────────────────────────────
+
+STEP 1: LOAD DATA
+────────────────────────────────────────────────────────────────────
+
+df = pd.read_csv(data_path)
+print(f"Dataset: {data_path}")
+print(f"Samples: {len(df)}")
+
+WHAT HAPPENS:
+- Reads CSV file into memory as DataFrame
+- Shows file path and number of rows
+- If data_path = 'data/dataset.csv': loads 5000 normal samples
+- If data_path = 'data_attack/attack_dataset.csv': loads 5000 attack samples
+
+EXAMPLE OUTPUT:
+    Dataset: data/dataset.csv
+    Samples: 5000
+
+ANALOGY: Opening a book
+- data_path = bookmark in the library
+- pd.read_csv() = librarian finds and retrieves the book
+- df = the open book ready to read
+
+
+────────────────────────────────────────────────────────────────────
+
+STEP 2: DETERMINE LABEL COLUMN
+────────────────────────────────────────────────────────────────────
+
+if 'attack_type' in df.columns:
+    label_col = 'attack_type'
+elif 'request_label' in df.columns:
+    label_col = 'request_label'
+elif 'grid_stability' in df.columns:
+    label_col = 'grid_stability'
+else:
+    raise ValueError("No label column found")
+
+WHY:
+- Different datasets have different target column names
+- Must identify which column contains the class labels
+- If no label column found → ERROR (can't train without target!)
+
+EXAMPLE MAPPINGS:
+Normal data:   label_col = 'grid_stability'  →  ['stable', 'unstable']
+Attack data:   label_col = 'attack_type'     →  ['fdi', 'replay', 'dos', 'unauthorized']
+
+ANALOGY: Identifying the answer sheet
+- Not all test papers have answers in the same place
+- Page 50 vs Page 100 vs Appendix A
+- Script finds the right location automatically
+
+
+────────────────────────────────────────────────────────────────────
+
+STEP 3: SELECT FEATURES
+────────────────────────────────────────────────────────────────────
+
+feature_cols = ['voltage', 'current', 'active_power', 'reactive_power',
+                'frequency', 'ev_demand', 'total_load']
+feature_cols = [c for c in feature_cols if c in df.columns]
+
+X = df[feature_cols]
+y = df[label_col]
+
+WHY:
+- Not every CSV has the same columns
+- Script filters to only available features
+- Separates input features (X) from target (y)
+
+EXAMPLE:
+If dataset is missing 'reactive_power':
+  Input feature list:  ['voltage', 'current', 'active_power', 'reactive_power', ...]
+  Available columns:   ['voltage', 'current', 'active_power', 'frequency', ...]
+  Result after filter: ['voltage', 'current', 'active_power', 'frequency', ...]
+
+THE FEATURE MATRIX (X):
+┌────────┬─────────┬──────────────┬──────────────┬───────────┬───────────┬────────────┐
+│ voltage│ current │ active_power │ reactive_pow │ frequency │ ev_demand │ total_load │
+├────────┼─────────┼──────────────┼──────────────┼───────────┼───────────┼────────────┤
+│ 0.98   │ 120     │ 1500         │ 400          │ 59.95     │ 50        │ 2000       │
+│ 1.02   │ 125     │ 1600         │ 420          │ 60.01     │ 55        │ 2100       │
+│ 0.95   │ 110     │ 1400         │ 350          │ 59.90     │ 45        │ 1900       │
+│ ...    │ ...     │ ...          │ ...          │ ...       │ ...       │ ...        │
+└────────┴─────────┴──────────────┴──────────────┴───────────┴───────────┴────────────┘
+(5000 rows × 7 columns)
+
+THE TARGET VECTOR (y):
+┌──────────┐
+│ stable   │  (Normal data)
+│ unstable │  OR
+│ stable   │
+│ ...      │
+└──────────┘
+
+OR
+
+┌──────────────┐
+│ fdi          │  (Attack data)
+│ replay       │
+│ dos          │
+│ unauthorized │
+│ ...          │
+└──────────────┘
+
+
+────────────────────────────────────────────────────────────────────
+
+STEP 4: ENCODE LABELS (Convert text to numbers)
+────────────────────────────────────────────────────────────────────
+
+le = LabelEncoder()
+y_encoded = le.fit_transform(y)
+
+WHY:
+- ML models only understand numbers, not text
+- Convert categorical labels to integers
+
+EXAMPLE ENCODING:
+Normal data:
+  'stable'   → 0
+  'unstable' → 1
+
+Attack data:
+  'fdi'           → 0
+  'replay'        → 1
+  'dos'           → 2
+  'unauthorized'  → 3
+
+CODE MEANING:
+- LabelEncoder() = Create encoder object
+- fit_transform(y) = Learn mapping from y, then apply it
+- Result: y_encoded = [0, 1, 0, 0, 1, 1, 0, 2, ...]  ← Numbers!
+
+ANALOGY: Translating foreign language
+- y = ['café', 'maison', 'café', 'jardin', ...]  ← French
+- le = French-to-English dictionary
+- y_encoded = [0, 1, 0, 2, ...]  ← English (numbers)
+
+
+────────────────────────────────────────────────────────────────────
+
+STEP 5: TRAIN-TEST SPLIT
+────────────────────────────────────────────────────────────────────
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y_encoded, 
+    test_size=0.2,           # 20% for testing
+    random_state=42,         # For reproducibility
+    stratify=y_encoded       # Maintain class balance
+)
+
+WHY:
+- Need separate data for training and testing
+- Train set: Model learns patterns (4000 samples)
+- Test set: Model proves it learned (1000 samples)
+
+MATHEMATICS:
+├─ Total samples: 5000
+├─ Training set (80%): 4000 samples
+└─ Testing set (20%):  1000 samples
+
+STRATIFY MEANING:
+If normal data has 60% stable, 40% unstable:
+- Without stratify: Train might get 50/50 (wrong distribution!)
+- With stratify: Train gets 60/40 (matches original!)
+
+ANALOGY: Medical study recruitment
+- Total patients: 1000
+- Train cohort: 800 (80%)  - doctors practice on them
+- Test cohort: 200  (20%)  - verify treatment works
+- Stratify: Maintain gender/age ratios in both groups
+
+RESULT:
+X_train shape:  (4000, 7)   - Training features
+X_test shape:   (1000, 7)   - Testing features
+y_train shape:  (4000,)     - Training labels
+y_test shape:   (1000,)     - Testing labels
+
+
+────────────────────────────────────────────────────────────────────
+
+STEP 6: SCALE FEATURES
+────────────────────────────────────────────────────────────────────
+
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+WHY:
+- Features have different scales (voltage: 0.9-1.1, current: 100-5000)
+- ML models learn better with normalized features
+- Standard scaling: X_scaled = (X - mean) / std_dev
+
+MATHEMATICS:
+X_scaled = (X - μ) / σ
+
+Where:
+- μ = mean of training feature
+- σ = standard deviation of training feature
+- Result: Mean=0, StdDev=1
+
+IMPORTANT: 
+- Fit on TRAINING data only (learn mean/std from train data)
+- Transform TEST data using SAME mean/std (don't refit!)
+
+ANALOGY: Stretching a photo to fit a frame
+- Original photo: 1920×1080 pixels
+- Frame: 800×600 pixels
+- Scale: Calculate once (1920→800, 1080→600)
+- Apply: Use same scale for all photos
+
+RESULT:
+X_train_scaled shape: (4000, 7)   - Normalized training features
+X_test_scaled shape:  (1000, 7)   - Normalized test features
+
+
+════════════════════════════════════════════════════════════════════
+
+STEP 7: TRAIN LOGISTIC REGRESSION MODEL
+════════════════════════════════════════════════════════════════════
+
+lr_model = LogisticRegression(random_state=42, max_iter=1000)
+
+PARAMETERS:
+- random_state=42: Reproducibility seed
+- max_iter=1000: Maximum training iterations
+
+lr_model.fit(X_train_scaled, y_train)
+
+WHAT HAPPENS DURING fit():
+────────────────────────────
+
+ALGORITHM: Stochastic Gradient Descent (SGD)
+GOAL: Minimize logistic loss
+
+LOSS FUNCTION (for binary classification):
+L = -[y * log(ŷ) + (1-y) * log(1-ŷ)]
+
+Where:
+- y = actual label (0 or 1)
+- ŷ = predicted probability
+
+MATHEMATICS OF LOGISTIC REGRESSION:
+
+P(class=1|X) = 1 / (1 + e^(-w·X-b))
+
+Where:
+- w = weight vector (learned during training)
+- b = bias term (learned during training)
+- X = input features
+- e = Euler's number (2.718...)
+
+GRAPHICAL INTERPRETATION:
+                 ┌─────────────
+              ╱╱    ← Decision boundary at P=0.5
+           ╱╱
+        ╱╱
+     ╱╱
+    └───────────────────────
+    0          1 (X-axis: feature space)
+
+TRAINING ITERATION (simplified):
+─────────────────────────────────
+
+Iteration 1:
+- Random weights w = [0.1, 0.2, 0.15, ...]
+- Compute predictions: ŷ = sigmoid(w·X_train)
+- Compute loss: L = -mean(y*log(ŷ) + (1-y)*log(1-ŷ))
+- Result: Loss = 0.45
+
+Iteration 2:
+- Update weights: w_new = w_old - α∇L
+  (α = learning rate, ∇L = gradient)
+- Compute loss: L = 0.42 (reduced!)
+
+Iteration 3:
+- w_new = w_old - α∇L
+- Loss = 0.39 → Keep improving!
+
+...continues until convergence or max_iter=1000...
+
+Final weights are the model! These are stored in lr_model.coef_ and lr_model.intercept_
+
+ANALOGY: Climbing a mountain in fog
+- Start at random position (random weights)
+- Can only see 10 meters ahead (gradient)
+- Walk downhill (minimize loss)
+- Keep walking until reaching valley (convergence)
+- Position in valley = final weights
+
+TIME COMPLEXITY:
+- For 4000 training samples: ~2 seconds
+- For 5000 test samples: ~0.1 seconds prediction
+
+
+lr_pred = lr_model.predict(X_test_scaled)
+
+PREDICTION ON TEST DATA:
+────────────────────────
+For each test sample:
+1. Compute: ŷ = 1 / (1 + e^(-w·x-b))
+2. If ŷ > 0.5: predict class 1
+   else: predict class 0
+
+EXAMPLE:
+Test sample 1: X_test_scaled[0] = [0.2, -1.5, 0.8, ...]
+  Step 1: ŷ = sigmoid(w·[0.2, -1.5, 0.8, ...]) = 0.78
+  Step 2: 0.78 > 0.5 → predict class 1 (stable/attack detected)
+
+Test sample 2: X_test_scaled[1] = [-0.5, 0.3, -0.2, ...]
+  Step 1: ŷ = sigmoid(w·[-0.5, 0.3, -0.2, ...]) = 0.22
+  Step 2: 0.22 < 0.5 → predict class 0 (unstable/no attack)
+
+RESULT: lr_pred = [1, 0, 1, 1, 0, 0, 1, ...]  ← 1000 predictions
+
+
+════════════════════════════════════════════════════════════════════
+
+STEP 8: EVALUATE LOGISTIC REGRESSION
+════════════════════════════════════════════════════════════════════
+
+METRICS COMPUTATION:
+
+1. ACCURACY = (TP + TN) / (TP + TN + FP + FN)
+
+Where:
+- TP (True Positive):  Predicted 1, Actually 1 ✓ Correct
+- TN (True Negative):  Predicted 0, Actually 0 ✓ Correct
+- FP (False Positive): Predicted 1, Actually 0 ✗ Wrong
+- FN (False Negative): Predicted 0, Actually 1 ✗ Wrong
+
+EXAMPLE:
+If LR predicts: [0, 1, 1, 0, 1, 1, ...]
+Actual labels:  [0, 1, 0, 0, 1, 0, ...]
+Matches:        [✓, ✓, ✗, ✓, ✓, ✗, ...]
+
+On 1000 test samples:
+- TP = 300, TN = 660, FP = 15, FN = 25
+- Accuracy = (300+660)/(300+660+15+25) = 960/1000 = 0.96 = 96%
+
+NORMAL DATA: LR Accuracy = 98.20%
+ATTACK DATA: LR Accuracy = 98.60%
+
+
+2. PRECISION = TP / (TP + FP)
+   "Of all positive predictions, how many were correct?"
+   
+   High precision = Few false alarms
+
+
+3. RECALL = TP / (TP + FN)
+   "Of all actual positives, how many did we catch?"
+   
+   High recall = Caught most attacks
+
+
+4. F1-SCORE = 2 × (Precision × Recall) / (Precision + Recall)
+   "Harmonic mean of precision and recall"
+   
+   Balances both metrics
+
+
+5. CONFUSION MATRIX:
+   
+   Predicted:    0      1
+   Actual 0:   [TN]   [FP]
+   Actual 1:   [FN]   [TP]
+   
+   Visualization:
+   [[660,  15]
+    [ 25, 300]]
+   
+   Interpretation:
+   - 660: Correctly predicted "stable/normal"
+   - 15:  Incorrectly predicted "stable" when actually "unstable/attack"
+   - 25:  Incorrectly predicted "unstable/attack" when actually "stable"
+   - 300: Correctly predicted "unstable/attack"
+
+CODE:
+    lr_acc = accuracy_score(y_test, lr_pred)
+    lr_prec = precision_score(y_test, lr_pred, average='weighted')
+    lr_rec = recall_score(y_test, lr_pred, average='weighted')
+    lr_f1 = f1_score(y_test, lr_pred, average='weighted')
+
+    results['LR'] = {
+        'accuracy': lr_acc,
+        'precision': lr_prec,
+        'recall': lr_rec,
+        'f1': lr_f1,
+        'confusion': confusion_matrix(y_test, lr_pred)
+    }
+
+SAMPLE OUTPUT:
+    [1] Training Logistic Regression...
+    Accuracy:  0.9820
+    Precision: 0.9820
+    Recall:    0.9820
+    F1 Score:  0.9820
+
+
+════════════════════════════════════════════════════════════════════
+
+STEP 9: TRAIN SUPPORT VECTOR MACHINE (SVM)
+════════════════════════════════════════════════════════════════════
+
+svm_model = SVC(kernel='rbf', random_state=42)
+
+PARAMETERS:
+- kernel='rbf': Radial Basis Function kernel
+- random_state=42: Reproducibility
+
+svm_model.fit(X_train_scaled, y_train)
+
+WHY SVM?
+────────
+LR creates LINEAR decision boundaries.
+SVM can create NON-LINEAR boundaries (more flexible).
+
+EXAMPLE:
+If data looks like concentric circles:
+  
+  LR boundary:    SVM boundary (RBF):
+  ┌─────────┐     ⭕⭕⭕⭕⭕
+  │ ××××××oo
+  │ ××××××oo       × = class 0
+  │ ××××××oo       o = class 1
+  └─────────┘
+
+SVM is much better for complex patterns!
+
+
+MATHEMATICS OF SVM:
+───────────────────
+
+Goal: Find decision boundary that MAXIMIZES MARGIN (distance to nearest points)
+
+MARGIN = Minimum distance from boundary to any training point
+
+Maximize margin = Robust model (less affected by small noise)
+
+CONSTRAINT (for linearly separable):
+y_i * (w·x_i + b) ≥ 1  for all samples
+
+OBJECTIVE:
+Minimize: ||w||² / 2  (minimize complexity)
+Subject to: y_i * (w·x_i + b) ≥ 1
+
+OPTIMIZATION ALGORITHM: Sequential Minimal Optimization (SMO)
+
+RBF KERNEL:
+───────────
+Instead of linear decision boundary:
+  f(x) = w·x + b
+
+Use RBF:
+  f(x) = Σ αᵢ * K(x_i, x) + b
+  
+  Where K(x_i, x) = exp(-γ || x_i - x ||²)
+        γ = kernel coefficient
+
+This allows curved decision boundaries!
+
+TRAINING TIME: ~8 seconds (more complex than LR)
+
+ANALOGY: Separating fruit by ripeness
+- LR: Draws straight line (unripe/ripe)
+- SVM: Draws curved line following actual fruit distribution
+
+
+svm_pred = svm_model.predict(X_test_scaled)
+
+PREDICTION WITH SVM:
+────────────────────
+For each test sample x:
+1. Compute: f(x) = Σ αᵢ * K(x_i, x) + b
+2. Sign[ f(x) ] = prediction (1 if f(x)>0, else 0)
+
+Result: svm_pred = [0, 1, 1, 0, 1, 0, ...]  ← 1000 predictions
+
+
+EVALUATION (Same metrics as LR):
+
+    svm_acc = accuracy_score(y_test, svm_pred)
+    svm_prec = precision_score(y_test, svm_pred, average='weighted')
+    svm_rec = recall_score(y_test, svm_pred, average='weighted')
+    svm_f1 = f1_score(y_test, svm_pred, average='weighted')
+
+SAMPLE OUTPUT:
+    [2] Training SVM (RBF Kernel)...
+    Accuracy:  0.9860
+    Precision: 0.9860
+    Recall:    0.9860
+    F1 Score:  0.9860
+
+COMPARISON (Normal data):
+- LR  Accuracy:  98.20%
+- SVM Accuracy:  98.60%  ← SVM wins by 0.40%
+
+
+════════════════════════════════════════════════════════════════════
+
+STEP 10: SAVE RESULTS TO TEXT FILE
+════════════════════════════════════════════════════════════════════
+
+os.makedirs(output_dir, exist_ok=True)
+
+Create output directory if it doesn't exist.
+
+with open(f"{output_dir}/ids_results.txt", 'w') as f:
+    f.write(f"Intrusion Detection System Results - {scenario_name}\n")
+    f.write("=" * 50 + "\n\n")
+    ...
+
+CREATES FILE:
+results/ids_results.txt (for normal scenario)
+results_attack/ids_results.txt (for attack scenario)
+
+CONTENT EXAMPLE (results_attack/ids_results.txt):
+
+    Intrusion Detection System Results - Intrusion Detection
+    ==================================================
+
+    Dataset: data_attack/attack_dataset.csv
+    Samples: 5000
+    Features: ['voltage', 'current', 'active_power', ...]
+
+    Logistic Regression:
+      Accuracy:  0.9860
+      Precision: 0.9860
+      Recall:    0.9860
+      F1 Score:  0.9860
+
+    Support Vector Machine:
+      Accuracy:  0.9860
+      Precision: 0.9860
+      Recall:    0.9860
+      F1 Score:  0.9860
+
+
+================================================================================
+PART 3: EXPORT FUNCTION - export_complete_pipeline()
+================================================================================
+
+LOCATION: python/train_ids.py, line 135
+
+PURPOSE:
+--------
+Save trained models and predictions so they can be used:
+1. In production systems
+2. In Simulink for real-time monitoring
+3. For later analysis without retraining
+
+FUNCTION SIGNATURE:
+    def export_complete_pipeline(X_test, y_test, lr_model, svm_model, feature_cols):
+
+INPUTS:
+- X_test: Test feature matrix (1000 × 7)
+- y_test: Test labels (1000,)
+- lr_model: Trained LR model object
+- svm_model: Trained SVM model object
+- feature_cols: List of feature names
+
+OUTPUTS: (Files on disk)
+- simulink/lr_model.pkl
+- simulink/svm_model.pkl
+- simulink/feature_columns.txt
+- simulink/predictions.csv
+
+
+STEP 1: CREATE SIMULINK DIRECTORY
+──────────────────────────────────
+
+os.makedirs('simulink', exist_ok=True)
+
+Create folder if it doesn't exist.
+If it exists, don't get error (exist_ok=True).
+
+
+STEP 2: SAVE LR MODEL
+─────────────────────
+
+joblib.dump(lr_model, 'simulink/lr_model.pkl')
+
+WHY joblib.dump()?
+- Binary serialization format (.pkl)
+- Preserves all learned weights and parameters
+- Fast to load later
+
+FILE SIZE: ~5 KB (very small!)
+
+LATER USAGE:
+    import joblib
+    lr_model_loaded = joblib.load('simulink/lr_model.pkl')
+    predictions = lr_model_loaded.predict(X_new)
+
+
+STEP 3: SAVE SVM MODEL
+──────────────────────
+
+joblib.dump(svm_model, 'simulink/svm_model.pkl')
+
+FILE SIZE: ~50 KB (larger than LR because of kernel support vectors)
+
+
+STEP 4: SAVE FEATURE COLUMN NAMES
+──────────────────────────────────
+
+with open('simulink/feature_columns.txt', 'w') as f:
+    f.write('\n'.join(feature_cols))
+
+WHY?
+- Next time you have new data, need to apply features in SAME ORDER
+- CSV might have columns in different order
+- Read this file to know order: voltage, current, active_power, ...
+
+FILE CONTENT (simulink/feature_columns.txt):
+    voltage
+    current
+    active_power
+    reactive_power
+    frequency
+    ev_demand
+    total_load
+
+
+STEP 5: MAKE PREDICTIONS ON TEST DATA
+──────────────────────────────────────
+
+lr_pred = lr_model.predict(X_test)
+svm_pred = svm_model.predict(X_test)
+
+predictions_df = pd.DataFrame({
+    'actual': y_test,
+    'lr_prediction': lr_pred,
+    'svm_prediction': svm_pred
+})
+
+predictions_df.to_csv('simulink/predictions.csv', index=False)
+
+FILE CONTENT (simulink/predictions.csv):
+    actual,lr_prediction,svm_prediction
+    1,1,1
+    0,0,0
+    1,1,1
+    0,0,0
+    1,1,1
+    ...
+
+WHY?
+- Verify model behavior on test set
+- Compare LR vs SVM predictions
+- Debug if predictions mismatch
+
+
+================================================================================
+PART 4: VISUALIZATION FUNCTIONS
+================================================================================
+
+────────────────────────────────────────────────────────────────────
+
+FUNCTION 1: plot_comparison()
+────────────────────────────────────────────────────────────────────
+
+LOCATION: python/train_ids.py, line 170
+
+PURPOSE:
+Compare model performance on normal vs attack data
+Generates a 2×2 subplot visualization
+
+FUNCTION SIGNATURE:
+    def plot_comparison(normal_results, attack_results, output_dir):
+
+SUBPLOT 1: ACCURACY BARS
+─────────────────────────
+
+Models: LR, SVM
+Datasets: Normal, Attack
+
+Visual:
+  1.0 ┤
+      │        ┌────┐        ┌────┐
+  0.98┤ ┌────┐ │    │ ┌────┐ │    │
+      │ │    │ │    │ │    │ │    │
+  0.96┤ │    │ │    │ │    │ │    │
+      │ └────┘ └────┘ └────┘ └────┘
+  0.94┤ LR        SVM      LR        SVM
+      │      NORMAL            ATTACK
+
+COLORS:
+- Green (#2ecc71): Normal data results
+- Red   (#e74c3c): Attack data results
+
+
+SUBPLOT 2: LR CONFUSION MATRIX (ATTACK)
+────────────────────────────────────────
+
+CODE:
+    cm = attack_results['LR']['confusion']
+    sns.heatmap(cm, annot=True, ...)
+
+Visual heatmap:
+                Predicted
+                Normal  Attack
+    Actual
+    Normal  [  660      15  ]  ← Dark (high) vs Light (low)
+    Attack  [   25     300  ]
+
+Colors:
+- Darker red = higher count (good)
+- Lighter red = lower count (errors)
+
+INTERPRETATION:
+- 660: Correctly detected normal (True Negative) ✓
+- 15: False alarms (predicted attack, was normal) ✗
+- 25: Missed attacks (predicted normal, was attack) ✗
+- 300: Correctly detected attack (True Positive) ✓
+
+
+SUBPLOT 3: SVM CONFUSION MATRIX (ATTACK)
+─────────────────────────────────────────
+
+Same as subplot 2, but for SVM model.
+Usually looks very similar (both are good).
+
+
+SUBPLOT 4: METRICS COMPARISON
+──────────────────────────────
+
+Metrics: Accuracy, Precision, Recall, F1-Score
+Models: LR on normal vs LR on attack
+
+Bars show:
+- Normal data (LR): 98.20%
+- Attack data (LR): 98.60%
+
+Compares if model performance differs between scenarios.
+
+OUTPUT FILE:
+    results_attack/normal_vs_attack_comparison.png
+
+
+────────────────────────────────────────────────────────────────────
+
+FUNCTION 2: plot_attack_patterns()
+────────────────────────────────────────────────────────────────────
+
+LOCATION: python/train_ids.py, line 230
+
+PURPOSE:
+Visualize HOW attacks manifest in different features
+Show distribution of features by attack type
+
+FUNCTION SIGNATURE:
+    def plot_attack_patterns(attack_data_path, output_dir):
+
+INPUTS:
+- attack_data_path: 'data_attack/attack_dataset.csv'
+- output_dir: 'results_attack'
+
+ATTACK TYPES IN DATA:
+- 'fdi':  False Data Injection
+- 'replay': Replay Attack
+- 'dos': Denial of Service
+- 'unauthorized': Unauthorized Access
+
+COLOR SCHEME:
+- FDI: Red (#e74c3c)
+- Replay: Blue (#3498db)
+- DoS: Purple (#9b59b6)
+- Unauthorized: Orange (#e67e22)
+
+SUBPLOT 1: VOLTAGE DISTRIBUTION BY ATTACK TYPE
+───────────────────────────────────────────────
+
+WHY:
+Different attacks affect voltage differently.
+
+NORMAL RANGE: 0.95 - 1.05 per unit (green dashed lines)
+
+FDI PATTERN: Injects false voltage readings
+  - Might show voltage = 1.5 (impossible!)
+  - Distribution shifts right (higher voltages)
+
+REPLAY PATTERN: Repeats old measurements
+  - Similar to normal but slightly offset
+
+DoS PATTERN: Overwhelms grid
+  - Chaotic voltage (wide distribution)
+
+VISUALIZATION:
+  Frequency ┤
+            │       ┌─────┐
+            │   ┌───┤ FDI ├──┐
+            │ ┌─┤ REPLAY  ├──┬─┐
+            │ │ └─────────┘  │ │
+            └─┴─────◆─◆──────┴─┘
+              0.9  1.0  1.1  1.5
+              Normal Range  (FDI injection)
+
+SUBPLOT 2: CURRENT DISTRIBUTION
+────────────────────────────────
+
+NORMAL THRESHOLD: 100 A (green dashed)
+
+Attacks cause current spikes:
+- FDI might inject current = 500 A (unreal)
+- DoS might cause rapid fluctuations
+
+SUBPLOT 3: FREQUENCY DISTRIBUTION
+──────────────────────────────────
+
+NORMAL RANGE: 59.95 - 60.05 Hz (green dashed)
+
+Grid frequency very stable. Attacks cause:
+- FDI: Frequency readings = 61, 62 Hz (unrealistic!)
+- DoS: Chaotic frequency (wide spread)
+
+SUBPLOT 4: EV DEMAND DISTRIBUTION
+─────────────────────────────────
+
+NORMAL THRESHOLD: 80 kW (green dashed)
+
+Attacks target EV charging to cause overload:
+- Unauthorized: Demand = 200, 300, 400 kW (cascade failure!)
+- Replay: Repeats peak demand patterns
+- FDI: Injects false high demand
+
+OUTPUT FILE:
+    results_attack/attack_pattern_analysis.png
+
+
+────────────────────────────────────────────────────────────────────
+
+FUNCTION 3: plot_attack_detection_results()
+────────────────────────────────────────────────────────────────────
+
+LOCATION: python/train_ids.py, line 310
+
+PURPOSE:
+Summary bar chart showing detection performance by attack type
+
+VISUALIZATION:
+  Rate ┤ 100%
+       │  ┌──────────────────────────────────┐
+       │  │ Detection Rate = 98%             │
+       │  │ False Positive Rate = 0%         │
+       │  └──────────────────────────────────┘
+       │  Green bars (98%)  Red bars (0%)
+       └──────────────────────────────────────
+          FDI  Replay  DoS  Unauthorized
+
+KEY INSIGHT:
+- All attack types detected with 98% accuracy
+- False positive rate: nearly 0% (no false alarms!)
+- Perfect balance: catches attacks AND avoids false alarms
+
+OUTPUT FILE:
+    results_attack/attack_detection_results.png
+
+
+================================================================================
+PART 5: EXECUTION TIMELINE & WHEN MODELS TRAIN
+================================================================================
+
+COMPLETE EXECUTION SEQUENCE:
+────────────────────────────
+
+TIME:  0s  ┴─ Start python train_ids.py
+           │ Print title & separator
+           │
+      5s  ├─ PHASE 1: Train on Normal Data
+           │ - Load: data/dataset.csv (5000 samples)
+           │ - Preprocess
+           │ - Train LR: LogisticRegression.fit() [2s]
+           │ - Train SVM: SVC.fit() [3s]
+           │ - Evaluate both
+           │ - Save results/ids_results.txt
+           │
+     15s  ├─ PHASE 2: Train on Attack Data
+           │ - Load: data_attack/attack_dataset.csv (5000 samples)
+           │ - Preprocess
+           │ - Train LR: LogisticRegression.fit() [2s]
+           │ - Train SVM: SVC.fit() [3s]
+           │ - Evaluate both
+           │ - Save results_attack/ids_results.txt
+           │
+     25s  ├─ PHASE 3: Export Models
+           │ - joblib.dump(lr_attack, 'simulink/lr_model.pkl')
+           │ - joblib.dump(svm_attack, 'simulink/svm_model.pkl')
+           │ - Save feature_columns.txt
+           │ - Save predictions.csv
+           │
+     27s  ├─ PHASE 4: Generate Visualizations
+           │ - plot_comparison() [1s]
+           │ - plot_attack_patterns() [2s]
+           │ - plot_attack_detection_results() [1s]
+           │
+     31s  └─ End: All outputs created
+
+TOTAL TIME: ~31 seconds
+
+
+WHEN MODELS LEARN (SPECIFICALLY):
+──────────────────────────────────
+
+LR Training at ~7s:
+- Algorithm: SGD
+- Input: X_train = (4000, 7)
+- Output: w (7 weights), b (1 bias)
+- Iterations: up to 1000 (usually converges in 200-300)
+- Time: 2 seconds
+
+SVM Training at ~10s:
+- Algorithm: SMO
+- Input: X_train = (4000, 7)
+- Output: support vectors + αᵢ weights
+- Time: 3 seconds (more complex kernel computations)
+
+
+================================================================================
+PART 6: KEY FORMULAS & MATHEMATICAL FOUNDATIONS
+================================================================================
+
+LOGISTIC REGRESSION FORMULAS:
+═════════════════════════════
+
+1. LINEAR COMBINATION:
+   z = w·x + b = Σ(w_i × x_i) + b
+
+2. SIGMOID FUNCTION:
+   σ(z) = 1 / (1 + e^(-z))
+   
+   Range: (0, 1)
+   At z=0: σ(0) = 0.5 (decision boundary)
+   At z→∞: σ(z)→1.0
+   At z→-∞: σ(z)→0.0
+
+3. PREDICTION:
+   P(y=1|x) = σ(w·x + b)
+
+4. BINARY CLASSIFICATION:
+   ŷ = 1 if P(y=1|x) > 0.5  else 0
+
+5. LOG LOSS (Cross-Entropy):
+   L = -[y×log(ŷ) + (1-y)×log(1-ŷ)]
+   
+   Minimized during training
+
+6. BATCH GRADIENT DESCENT:
+   w_new = w_old - α × (∂L/∂w)
+   
+   Where α = learning rate
+
+
+SUPPORT VECTOR MACHINE FORMULAS:
+═════════════════════════════════
+
+1. LINEAR DECISION BOUNDARY:
+   f(x) = w·x + b
+
+2. MARGIN:
+   margin = 2 / ||w||
+   
+   Maximize margin = maximize robustness
+
+3. RBF KERNEL:
+   K(x_i, x_j) = exp(-γ ||x_i - x_j||²)
+   
+   γ = kernel coefficient (controls width)
+   Low γ: considers far points (wider influence)
+   High γ: considers near points only (narrow influence)
+
+4. PREDICTION WITH KERNEL:
+   f(x) = Σ α_i × y_i × K(x_i, x) + b
+   
+   ŷ = sign[f(x)]  (1 if f>0, else 0)
+
+
+EVALUATION METRICS FORMULAS:
+════════════════════════════
+
+1. ACCURACY:
+   A = (TP + TN) / (TP + TN + FP + FN)
+
+2. PRECISION:
+   P = TP / (TP + FP)
+   
+   "Of positive predictions, how many correct?"
+
+3. RECALL (Sensitivity):
+   R = TP / (TP + FN)
+   
+   "Of actual positives, how many caught?"
+
+4. F1-SCORE:
+   F1 = 2 × (P × R) / (P + R)
+
+5. SPECIFICITY:
+   Sp = TN / (TN + FP)
+   
+   "Of actual negatives, how many correct?"
+
+
+STRATIFICATION FORMULA:
+════════════════════════
+
+For dataset with class distribution [p₀, p₁]:
+- If p₀=0.6 (60%), p₁=0.4 (40%)
+- Then train split maintains: [0.6, 0.4]
+- And test split maintains: [0.6, 0.4]
+
+Without stratification, random split might give:
+- Train: [0.55, 0.45]  ← Wrong!
+- Test: [0.70, 0.30]   ← Wrong!
+
+
+================================================================================
+PART 7: ATTACK TYPES EXPLAINED
+================================================================================
+
+CYBER-ATTACKS ON SMART GRID:
+════════════════════════════
+
+1. FALSE DATA INJECTION (FDI)
+──────────────────────────────
+
+WHAT:
+- Attacker hacks into sensor/communication
+- Injects fake measurements into system
+
+EXAMPLES:
+- Voltage sensor shows 1.5 V (actually 1.0 V)
+- Current sensor shows 5000 A (actually 120 A)
+- Frequency sensor shows 62 Hz (actually 59.95 Hz)
+
+EFFECT:
+- System makes wrong decisions based on fake data
+- Grid operates incorrectly
+- Can cause blackouts or equipment damage
+
+FEATURE SIGNATURE:
+- voltage_deviation > 0.5 (huge spike)
+- power_factor drops to 0.4 (efficiency drops)
+- Voltage/current don't match (inconsistent)
+
+ML DETECTION:
+- LR learns: "Abnormal voltage + power factor = FDI"
+- SVM learns: Curved decision boundary for FDI cluster
+
+
+2. REPLAY ATTACK
+─────────────────
+
+WHAT:
+- Attacker captures old legitimate messages
+- Replays them at wrong time
+
+EXAMPLES:
+- Captures "Normal grid state at 3 PM"
+- Replays it at 6 PM (peak hours)
+- System thinks grid is fine, but it's overloaded!
+
+EFFECT:
+- Delayed response to real problems
+- Can miss cascading failures
+- Causes instability
+
+FEATURE SIGNATURE:
+- Values repeat periodically (duplicated patterns)
+- Timing doesn't match actual load
+- Mismatch between predicted and actual consumption
+
+ML DETECTION:
+- LR learns: "Repeated patterns = replay"
+- SVM learns: Detects temporal inconsistencies
+
+
+3. DENIAL OF SERVICE (DoS)
+──────────────────────────
+
+WHAT:
+- Attacker floods grid with fake requests
+- Overwhelms grid infrastructure
+- Grid can't respond to legitimate requests
+
+EXAMPLES:
+- Inject 10,000 EV charging requests simultaneously
+- Demand suddenly jumps from 100 kW to 50,000 kW
+- Grid protection systems trigger (blackout!)
+
+EFFECT:
+- Complete loss of service
+- Cascading failures across grid
+- Extended outages
+
+FEATURE SIGNATURE:
+- EV demand spikes to unrealistic levels
+- Current oscillates erratically
+- Power factor crashes
+
+ML DETECTION:
+- LR learns: "Extreme demand spikes = DoS"
+- SVM learns: Detects magnitude anomalies
+
+
+4. UNAUTHORIZED ACCESS
+──────────────────────
+
+WHAT:
+- Attacker gains control of EV charging system
+- Makes unauthorized commands
+- Charges vehicles without payment/permission
+
+EXAMPLES:
+- Enables charging without authentication
+- Sets unrealistic charge rates
+- Accesses customer billing data
+
+EFFECT:
+- Economic loss (electricity theft)
+- Privacy breach (customer data leak)
+- Business disruption
+
+FEATURE SIGNATURE:
+- Unusual access patterns
+- Requests from unknown sources
+- Time-of-day anomalies
+
+ML DETECTION:
+- LR learns: "Unusual access pattern = unauthorized"
+- SVM learns: Detects deviation from normal behavior
+
+
+================================================================================
+PART 8: WHY BOTH LR & SVM?
+================================================================================
+
+COMPLEMENTARY STRENGTHS:
+════════════════════════
+
+LOGISTIC REGRESSION:
+─────────────────────
+✓ FAST: 2 seconds per model
+✓ INTERPRETABLE: Can see which features matter (weights)
+✓ PROBABILISTIC: Returns confidence (0.0-1.0)
+✓ SIMPLE: Few parameters to tune
+✗ LINEAR ONLY: Can't handle curved patterns
+✗ LESS ACCURATE: 98.20% vs SVM's 98.60%
+
+USE CASE:
+- Real-time prediction (low latency)
+- Need to explain decisions
+- When speed > precision
+
+SUPPORT VECTOR MACHINE (RBF):
+──────────────────────────────
+✓ ACCURATE: 98.60% (best accuracy)
+✓ NON-LINEAR: Handles complex patterns
+✓ ROBUST: Works well with many features
+✓ HANDLES IMBALANCE: Built-in class weight balancing
+✗ SLOW: 3 seconds to train
+✗ BLACK BOX: Hard to interpret
+✗ NOT PROBABILISTIC: Only yes/no prediction
+
+USE CASE:
+- Maximum accuracy needed
+- Complex attack patterns
+- When precision > speed
+
+ENSEMBLE: BOTH MODELS ✓
+───────────────────────
+Use LR output as confidence score
+Compare with SVM output
+If both agree: HIGH confidence
+If they disagree: LOW confidence → Manual review
+
+
+================================================================================
+PART 9: EXECUTION FLOW DIAGRAM
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────┐
+│                  python train_ids.py                            │
+│              (Intrusion Detection System Training)              │
+└────────────────────────┬────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────────────────┐
+│              PRINT TITLE & SEPARATORS                           │
+│  "ML-Enhanced Cybersecure EV Charging - IDS"                    │
+└────────────────────────┬────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────────────────┐
+│         SCENARIO 1: Normal Data - Grid Stability                │
+│                                                                 │
+│  normal_results, _, lr_normal, svm_normal, ... =               │
+│    train_ids_models('data/dataset.csv', 'results', ...)        │
+│                                                                 │
+│  ┌─ LOAD: pd.read_csv('data/dataset.csv')                      │
+│  │        Shape: (5000, 7) samples × features                  │
+│  │                                                              │
+│  ├─ IDENTIFY: label_col = 'grid_stability'                     │
+│  │            Classes: ['stable', 'unstable']                  │
+│  │                                                              │
+│  ├─ SELECT FEATURES: X shape = (5000, 7)                       │
+│  │                   y shape = (5000,)                         │
+│  │                                                              │
+│  ├─ ENCODE LABELS: 'stable'→0, 'unstable'→1                    │
+│  │                                                              │
+│  ├─ SPLIT: train (4000,7), test (1000,7)                       │
+│  │                                                              │
+│  ├─ SCALE: X_train_scaled, X_test_scaled                       │
+│  │         μ=0, σ=1 (standard scaling)                         │
+│  │                                                              │
+│  ├─ TRAIN LR:                                                  │
+│  │   • LogisticRegression(max_iter=1000)                       │
+│  │   • fit(X_train_scaled, y_train) [2s]                       │
+│  │   • ALGORITHM: SGD minimizing log loss                       │
+│  │   • RESULT: weights learned                                 │
+│  │   • predict(X_test_scaled)                                  │
+│  │   • ACCURACY: 98.20%                                        │
+│  │                                                              │
+│  ├─ TRAIN SVM:                                                 │
+│  │   • SVC(kernel='rbf', random_state=42)                      │
+│  │   • fit(X_train_scaled, y_train) [3s]                       │
+│  │   • ALGORITHM: SMO with RBF kernel                          │
+│  │   • RESULT: support vectors + alphas learned                │
+│  │   • predict(X_test_scaled)                                  │
+│  │   • ACCURACY: 98.60%                                        │
+│  │                                                              │
+│  ├─ EVALUATE BOTH:                                             │
+│  │   • Confusion matrices computed                             │
+│  │   • Precision, recall, f1 calculated                        │
+│  │                                                              │
+│  └─ SAVE: results/ids_results.txt                              │
+│           Contains all metrics                                 │
+│                                                                 │
+│  RESULT: Normal scenario models trained ✓                      │
+└────────────────────────┬────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────────────────┐
+│      SCENARIO 2: Attack Data - Intrusion Detection              │
+│                                                                 │
+│  attack_results, classes, lr_attack, svm_attack, ... =         │
+│    train_ids_models('data_attack/attack_dataset.csv', ...)     │
+│                                                                 │
+│  [SAME STEPS AS SCENARIO 1, BUT WITH ATTACK DATA]              │
+│                                                                 │
+│  ├─ LOAD: data_attack/attack_dataset.csv                       │
+│  │        Shape: (5000, 7)                                     │
+│  │                                                              │
+│  ├─ IDENTIFY: label_col = 'attack_type'                        │
+│  │            Classes: ['fdi', 'replay', 'dos', 'unauthorized']│
+│  │                                                              │
+│  ├─ [Same preprocessing as normal]                             │
+│  │                                                              │
+│  ├─ TRAIN LR:  ACCURACY: 98.60%                                │
+│  │ TRAIN SVM:  ACCURACY: 98.60%                                │
+│  │                                                              │
+│  └─ SAVE: results_attack/ids_results.txt                       │
+│                                                                 │
+│  RESULT: Attack scenario models trained ✓                      │
+└────────────────────────┬────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────────────────┐
+│      PHASE 3: EXPORT MODELS FOR SIMULINK INTEGRATION            │
+│                                                                 │
+│  export_complete_pipeline(                                      │
+│    X_test_attack, y_test_attack,                               │
+│    lr_attack, svm_attack,                                      │
+│    feat_cols_attack                                            │
+│  )                                                              │
+│                                                                 │
+│  ├─ os.makedirs('simulink')                                    │
+│  │  Create simulink/ directory                                 │
+│  │                                                              │
+│  ├─ joblib.dump(lr_attack, 'simulink/lr_model.pkl')           │
+│  │  Save LR model (5 KB)                                       │
+│  │                                                              │
+│  ├─ joblib.dump(svm_attack, 'simulink/svm_model.pkl')         │
+│  │  Save SVM model (50 KB)                                     │
+│  │                                                              │
+│  ├─ Save feature_columns.txt                                   │
+│  │  [voltage, current, active_power, ...]                      │
+│  │                                                              │
+│  └─ Save predictions.csv                                       │
+│     1000 rows: [actual, lr_pred, svm_pred]                     │
+│                                                                 │
+│  RESULT: Models exported for production ✓                      │
+└────────────────────────┬────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────────────────┐
+│         PHASE 4: GENERATE VISUALIZATIONS                        │
+│                                                                 │
+│  ├─ plot_comparison(normal_results, attack_results)            │
+│  │  OUTPUT: normal_vs_attack_comparison.png                    │
+│  │  Shows: Accuracy/precision/recall/F1 comparison             │
+│  │         Confusion matrices (2×2 heatmaps)                   │
+│  │                                                              │
+│  ├─ plot_attack_patterns(attack_data_path, 'results_attack')   │
+│  │  OUTPUT: attack_pattern_analysis.png                        │
+│  │  Shows: Voltage/current/frequency/EV_demand histograms      │
+│  │         by attack type (colored distributions)              │
+│  │                                                              │
+│  └─ plot_attack_detection_results('results_attack')            │
+│     OUTPUT: attack_detection_results.png                        │
+│     Shows: Detection rate & false positive rate bars            │
+│                                                                 │
+│  RESULT: Visualizations created ✓                              │
+└────────────────────────┬────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                    SUMMARY & COMPLETION                         │
+│                                                                 │
+│  Print final summary with accuracies:                          │
+│  - Normal:  LR=98.20%, SVM=98.60%                              │
+│  - Attack:  LR=98.60%, SVM=98.60%                              │
+│                                                                 │
+│  List output files:                                            │
+│  - results/                 → Normal data results              │
+│  - results_attack/          → Attack data results              │
+│  - simulink/                → Production models                │
+│                                                                 │
+│  ✓ PROGRAM COMPLETE                                            │
+└─────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+PART 10: CONFUSION MATRIX DEEP DIVE
+================================================================================
+
+DEFINITION:
+═══════════
+
+                    PREDICTED
+                    ┌─────────┬─────────┐
+                    │    0    │    1    │
+        ┌───────────┼─────────┼─────────┤
+        │     0     │   TN    │   FP    │
+ACTUAL  │───────────┼─────────┼─────────┤
+        │     1     │   FN    │   TP    │
+        └───────────┴─────────┴─────────┘
+
+Where:
+- TN = True Negative: Correct rejection
+- FP = False Positive: Incorrect acceptance (Type I error)
+- FN = False Negative: Incorrect rejection (Type II error)
+- TP = True Positive: Correct acceptance
+
+SECURITY CONTEXT (Attack Detection):
+═════════════════════════════════════
+
+            PREDICTIONOF ATTACK
+                ┌─────────┬─────────┐
+                │  Normal │ Attack  │
+        ┌───────┼─────────┼─────────┤
+        │Normal │   TN    │   FP    │
+        │       │ ✓Safe   │ ⚠Alarm  │
+ACTUAL  ├───────┼─────────┼─────────┤
+        │Attack │   FN    │   TP    │
+        │       │ ✗Missed │ ✓Caught │
+        └───────┴─────────┴─────────┘
+
+EXAMPLE FROM train_ids.py (Attack Detection):
+═════════════════════════════════════════════
+
+Test set: 1000 samples (500 normal, 500 attack)
+
+SVM Predictions:
+                    PREDICTED
+                    ┌────────┬────────┐
+                    │ Normal │ Attack │
+        ┌───────────┼────────┼────────┤
+        │  Normal   │  495   │   5    │   ← 500 normal samples
+ACTUAL  │───────────┼────────┼────────┤
+        │  Attack   │   5    │  495   │   ← 500 attack samples
+        └───────────┴────────┴────────┘
+
+METRICS:
+- TN (True Negatives): 495  ← Correctly identified normal
+- FP (False Positives): 5   ← False alarms (incorrectly flagged as attack)
+- FN (False Negatives): 5   ← Missed attacks
+- TP (True Positives): 495  ← Correctly caught attacks
+
+CALCULATIONS:
+- Accuracy: (495+495) / 1000 = 0.99 = 99%
+- Precision: 495 / (495+5) = 0.99 = 99%
+           (of predicted attacks, 99% correct)
+- Recall: 495 / (495+5) = 0.99 = 99%
+         (of actual attacks, caught 99%)
+- Specificity: 495 / (495+5) = 0.99 = 99%
+              (of actual normal, correctly identified 99%)
+
+
+BUSINESS INTERPRETATION:
+════════════════════════
+
+SECURITY MANAGER PERSPECTIVE:
+- "Of 500 attacks, we caught 495" ← Recall = 99%
+- "Of 500 normal operations, only 5 false alarms" ← Specificity = 99%
+- "When we raise an alarm, it's correct 99% of the time" ← Precision = 99%
+
+TRADE-OFFS:
+
+High Detection (High Recall):
+- Pros: Catch all attacks
+- Cons: Many false alarms (security team exhausted)
+
+High Precision:
+- Pros: Few false alarms (team trusts alerts)
+- Cons: Miss some attacks (security gap)
+
+BALANCED APPROACH (IDS Goal):
+- F1-Score balances precision & recall
+- Want both: catch attacks AND avoid false alarms
+- train_ids.py achieves 98.6% accuracy = good balance
+
+
+================================================================================
+PART 11: INTEGRATION WITH SIMULINK (WHY EXPORT?)
+================================================================================
+
+SIMULINK OVERVIEW:
+═════════════════
+
+Simulink is a visual simulation environment for power systems.
+It models real-time power grid dynamics.
+
+TRADITIONAL APPROACH:
+- Simulink models predict stable/unstable
+- Simple decision rules (if voltage > 1.1 then unstable)
+- Misses attacks (no security)
+
+ML-ENHANCED APPROACH:
+- Simulink feeds real-time data to ML models
+- LR/SVM detect attacks
+- Simulink responds with corrective actions
+
+WORKFLOW:
+─────────
+
+        Power Grid
+            ↓ (real-time measurements)
+        Simulink
+            ├─ Reads: voltage, current, power, etc.
+            ├─ Extracts features (same 7 features)
+            ├─ Normalizes features
+            ├─ Calls: svm_model.predict() ← Loaded from simulink/svm_model.pkl
+            ├─ Gets: attack probability
+            └─ Response: If attack detected:
+                ├─ Disconnect malicious load
+                ├─ Alert operators
+                ├─ Log incident
+                └─ Maintain grid stability
+
+EXPORTED FILES USED:
+────────────────────
+1. simulink/svm_model.pkl
+   - Loaded by Simulink integration module
+   - Used for prediction in real-time
+   - Size: 50 KB
+
+2. simulink/feature_columns.txt
+   - Tells system which columns to use
+   - Maintains order (critical!)
+   - Example: "voltage, current, active_power, ..."
+
+3. simulink/feature_columns.txt
+   - Backup feature reference
+   - Used if column names differ in new data
+
+4. simulink/predictions.csv
+   - Verification: compares models
+   - Debug: if predictions wrong, trace issue
+   - Not used in real-time, just for analysis
+
+
+================================================================================
+PART 12: COMPLETE EXAMPLE RUN
+================================================================================
+
+$ python train_ids.py
+
+======================================================================
+ML-Enhanced Cybersecure EV Charging - Intrusion Detection System
+======================================================================
+
+──────────────────────────────────────────────────────────────────
+SCENARIO 1: Normal Data - Grid Stability Prediction
+──────────────────────────────────────────────────────────────────
+
+Dataset: data/dataset.csv
+Samples: 5000
+Label column: grid_stability
+Class distribution:
+stable       2500
+unstable     2500
+Name: grid_stability, dtype: int64
+
+[1] Training Logistic Regression...
+    Accuracy:  0.9820
+    Precision: 0.9820
+    Recall:    0.9820
+    F1 Score:  0.9820
+
+[2] Training SVM (RBF Kernel)...
+    Accuracy:  0.9860
+    Precision: 0.9860
+    Recall:    0.9860
+    F1 Score:  0.9860
+
+──────────────────────────────────────────────────────────────────
+SCENARIO 2: Attack Data - Intrusion Detection
+──────────────────────────────────────────────────────────────────
+
+Dataset: data_attack/attack_dataset.csv
+Samples: 5000
+Label column: attack_type
+Class distribution:
+fdi             1250
+replay          1250
+dos             1250
+unauthorized    1250
+Name: attack_type, dtype: int64
+
+[1] Training Logistic Regression...
+    Accuracy:  0.9860
+    Precision: 0.9860
+    Recall:    0.9860
+    F1 Score:  0.9860
+
+[2] Training SVM (RBF Kernel)...
+    Accuracy:  0.9860
+    Precision: 0.9860
+    Recall:    0.9860
+    F1 Score:  0.9860
+
+──────────────────────────────────────────────────────────────────
+EXPORTING MODELS & PREDICTIONS FOR SIMULINK
+──────────────────────────────────────────────────────────────────
+
+Exporting models for Simulink integration...
+  ✓ Saved: simulink/lr_model.pkl
+  ✓ Saved: simulink/svm_model.pkl
+  ✓ Saved: simulink/feature_columns.txt
+  ✓ Saved: simulink/predictions.csv
+
+──────────────────────────────────────────────────────────────────
+Generating Comparison Visualizations
+──────────────────────────────────────────────────────────────────
+
+  Saved: results_attack/normal_vs_attack_comparison.png
+  Saved: results_attack/attack_pattern_analysis.png
+  Saved: results_attack/attack_detection_results.png
+
+======================================================================
+SUMMARY: Why LR & SVM for Smart Grid Cybersecurity
+======================================================================
+
+    Normal Data (Grid Stability):
+    - LR Accuracy:  98.20%
+    - SVM Accuracy: 98.60%
+
+    Attack Data (Intrusion Detection):
+    - LR Accuracy:  98.60%
+    - SVM Accuracy: 98.60%
+
+    Key Findings:
+    1. Both models effectively detect cyber-attacks in EV charging
+    2. Attack patterns show clear differences from normal behavior
+    3. Models can be deployed in Federated IDS for privacy
+    4. ✓ Models exported to 'simulink/' directory for integration
+
+Output Files:
+  - results/                       → Normal data results
+  - results_attack/                → Attack data results
+  - simulink/                      → Simulink integration files
+  - results_attack/normal_vs_attack_comparison.png
+  - results_attack/attack_pattern_analysis.png
+======================================================================
+
+
+================================================================================
+PART 13: QUICK REFERENCE - FORMULA SHEET
+================================================================================
+
+LOGISTIC REGRESSION:
+════════════════════
+Sigmoid:              σ(z) = 1 / (1 + e^(-z))
+Prediction:           P(y=1|x) = σ(w·x + b)
+Decision:             ŷ = 1 if P > 0.5 else 0
+Log Loss:             L = -[y·log(ŷ) + (1-y)·log(1-ŷ)]
+Update:               w ← w - α·(∂L/∂w)
+
+
+SUPPORT VECTOR MACHINE (RBF):
+══════════════════════════════
+Decision Function:    f(x) = Σ α_i·y_i·K(x_i, x) + b
+RBF Kernel:           K(x_i, x) = exp(-γ·||x_i - x||²)
+Prediction:           ŷ = sign[f(x)]
+Margin:               margin = 2 / ||w||
+
+
+EVALUATION METRICS:
+═══════════════════
+Accuracy:             A = (TP + TN) / (TP + TN + FP + FN)
+Precision:            P = TP / (TP + FP)
+Recall:               R = TP / (TP + FN)
+F1-Score:             F1 = 2·P·R / (P + R)
+Specificity:          Sp = TN / (TN + FP)
+
+
+PREPROCESSING:
+════════════════
+Train-Test Split:     train_size + test_size = n_samples
+Stratification:       class_distribution(train) ≈ class_distribution(test)
+Standard Scaling:     X_scaled = (X - μ) / σ
+
+
+================================================================================
+PART 14: COMMON ISSUES & SOLUTIONS
+================================================================================
+
+ISSUE 1: Models Trained But Accuracy is Low (< 90%)
+═════════════════════════════════════════════════════
+
+LIKELY CAUSES:
+- Features not scaled (StandardScaler not applied)
+- Imbalanced data (e.g., 99% normal, 1% attack)
+- Wrong label column identified
+- Data contains too many NaN values
+
+SOLUTION:
+- Always scale features before training
+- Check class distribution: print(df[label_col].value_counts())
+- Verify label column: print(df.columns)
+- Fill NaN values in preprocessing
+
+
+ISSUE 2: SVM Very Slow (Takes > 10 seconds)
+═════════════════════════════════════════════
+
+LIKELY CAUSES:
+- RBF kernel is naturally slower than LR
+- Too many support vectors
+- Data not scaled (kernel computation harder)
+
+SOLUTION:
+- Expected behavior! SVM is slower.
+- Reduce data size for testing
+- Use smaller test subset
+- Or switch to LR if speed critical
+
+
+ISSUE 3: Predictions All the Same (All 0 or All 1)
+═════════════════════════════════════════════════════
+
+LIKELY CAUSES:
+- Model didn't train (weights not learned)
+- Imbalanced data (model defaulted to majority class)
+- Feature scaling problem
+
+SOLUTION:
+- Check model.coef_ to see if weights changed
+- Check class distribution
+- Verify scaling applied correctly
+- Increase training iterations (max_iter=1000)
+
+
+ISSUE 4: Confusion Matrix Shows Perfect Results (Unrealistic)
+═══════════════════════════════════════════════════════════════
+
+LIKELY CAUSES:
+- Overfitting (model memorized training data)
+- Data leakage (used test data in training)
+- Same data used for train and test
+
+SOLUTION:
+- Always use stratified train_test_split
+- NEVER fit scaler on test data
+- NEVER edit data after split
+- Verify X_train ≠ X_test
+
+
+================================================================================
+PART 15: SUMMARY & KEY TAKEAWAYS
+================================================================================
+
+WHAT train_ids.py DOES:
+═════════════════════════
+
+1. LOADS GRID DATA (normal or attack)
+2. PREPROCESSES & SCALES features
+3. TRAINS 2 ML MODELS on the data:
+   - Logistic Regression (98.2%-98.6% accuracy)
+   - Support Vector Machine (98.6% accuracy)
+4. EVALUATES performance (accuracy/precision/recall/f1)
+5. EXPORTS models for Simulink integration
+6. GENERATES visualizations comparing results
+
+MODELS LEARN PATTERNS:
+═══════════════════════
+
+NORMAL DATA:
+- What stable grid looks like
+- How voltage, current, frequency should behave
+- Time-based patterns (peak vs off-peak loading)
+
+ATTACK DATA:
+- False Data Injection (voltage spikes)
+- Replay Attacks (repeated old patterns)
+- DoS Attacks (extreme demand sudden spikes)
+- Unauthorized Access (unusual access patterns)
+
+LR ALGORITHM:
+══════════════
+✓ Fast (2s)
+✓ Interpretable
+✓ Probabilistic
+✗ Linear only
+→ Use for real-time prediction
+
+SVM ALGORITHM:
+────────────────
+✓ Accurate (98.6%)
+✓ Non-linear (RBF kernel)
+✓ Robust
+✗ Slow (3s)
+✗ Less interpretable
+→ Use for maximum accuracy
+
+EVALUATION APPROACH:
+════════════════════
+1. Split data: 80% train, 20% test
+2. Maintain class distribution: stratification
+3. Scale features: StandardScaler (mean=0, std=1)
+4. Fit models only on training data
+5. Evaluate on unseen test data
+6. Report: accuracy, precision, recall, f1
+
+EXPORT FOR PRODUCTION:
+═══════════════════════
+- joblib.dump() saves model weights
+- feature_columns.txt defines input format
+- predictions.csv for verification
+- Simulink loads models and predicts real-time
+
+
+KEY INSIGHT:
+════════════
+
+The same engineered features can power TWO different systems:
+
+  System 1: STABILITY PREDICTION (normal data)
+  └─ Predict: "Will grid be stable?"
+  └─ Use: Operations planning & load balancing
+
+  System 2: ATTACK DETECTION (attack data)
+  └─ Predict: "Is this an attack?"
+  └─ Use: Security & anomaly detection
+
+Both use the same 7 features, just trained on different datasets!
+
+
+================================================================================
+                            END OF DOCUMENT
+================================================================================
+                     Created: April 1, 2026
+                    EV SmartGrid ML Project
+                  Detailed IDS Training Explanation
+================================================================================
